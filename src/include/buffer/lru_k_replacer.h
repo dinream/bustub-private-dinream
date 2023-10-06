@@ -26,14 +26,15 @@ namespace bustub {
 enum class AccessType { Unknown = 0, Lookup, Scan, Index };
 
 class LRUKNode {
- private:
+ public:
   /** History of last seen K timestamps of this page. Least recent timestamp stored in front. */
   // Remove maybe_unused if you start using them. Feel free to change the member variables as you want.
 
-  [[maybe_unused]] std::list<size_t> history_;
-  [[maybe_unused]] size_t k_;
+  std::list<size_t> history_;
+  size_t k_{0};
   [[maybe_unused]] frame_id_t fid_;
-  [[maybe_unused]] bool is_evictable_{false};
+public:
+  LRUKNode(frame_id_t fid_);
 };
 
 /**
@@ -104,58 +105,3 @@ class LRUKReplacer {
    * TODO(P1): Add implementation
    *
    * @brief Toggle whether a frame is evictable or non-evictable. This function also
-   * controls replacer's size. Note that size is equal to number of evictable entries.
-   *
-   * If a frame was previously evictable and is to be set to non-evictable, then size should
-   * decrement. If a frame was previously non-evictable and is to be set to evictable,
-   * then size should increment.
-   *
-   * If frame id is invalid, throw an exception or abort the process.
-   *
-   * For other scenarios, this function should terminate without modifying anything.
-   *
-   * @param frame_id id of frame whose 'evictable' status will be modified
-   * @param set_evictable whether the given frame is evictable or not
-   */
-  void SetEvictable(frame_id_t frame_id, bool set_evictable);
-
-  /**
-   * TODO(P1): Add implementation
-   *
-   * @brief Remove an evictable frame from replacer, along with its access history.
-   * This function should also decrement replacer's size if removal is successful.
-   *
-   * Note that this is different from evicting a frame, which always remove the frame
-   * with largest backward k-distance. This function removes specified frame id,
-   * no matter what its backward k-distance is.
-   *
-   * If Remove is called on a non-evictable frame, throw an exception or abort the
-   * process.
-   *
-   * If specified frame is not found, directly return from this function.
-   *
-   * @param frame_id id of frame to be removed
-   */
-  void Remove(frame_id_t frame_id);
-
-  /**
-   * TODO(P1): Add implementation
-   *
-   * @brief Return replacer's size, which tracks the number of evictable frames.
-   *
-   * @return size_t
-   */
-  auto Size() -> size_t;
-
- private:
-  // TODO(student): implement me! You can replace these member variables as you like.
-  // Remove maybe_unused if you start using them.
-  std::unordered_map<frame_id_t, LRUKNode> node_store_;
-  [[maybe_unused]] size_t current_timestamp_{0};
-  [[maybe_unused]] size_t curr_size_{0};
-  [[maybe_unused]] size_t replacer_size_;
-  [[maybe_unused]] size_t k_;
-  [[maybe_unused]] std::mutex latch_;
-};
-
-}  // namespace bustub
