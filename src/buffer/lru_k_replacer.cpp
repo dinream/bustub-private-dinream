@@ -26,7 +26,9 @@ LRUKReplacer::LRUKReplacer(size_t num_frames, size_t k) : replacer_size_(num_fra
 }
 
 auto LRUKReplacer::Evict(frame_id_t *frame_id) -> bool {
-
+    for(auto it:node_store_){
+        if(it->second)
+    }
     return false; 
 }
 
@@ -50,13 +52,19 @@ void LRUKReplacer::RecordAccess(frame_id_t frame_id, [[maybe_unused]] AccessType
     }
     current_timestamp_++;
 }
-
+suo cun part guan part
 void LRUKReplacer::SetEvictable(frame_id_t frame_id, bool set_evictable) {
     if(frame_id<0||frame_id>=replacer_size_){
         exit(-1);//帧的大小 小于0 或者 大于了 替换器大小，无法访问。
     }
-    if(evictable_[frame_id]^set_evictable){
-        evictable_[frame_id]=set_evictable;
+    if(node_store_.find[frame_id]==node_store_.end()){
+        //node_store_
+        exit(-1);
+    }
+    is_evictable_
+
+    if(node_store_.find[frame_id].is_evictable_^set_evictable){
+        node_store_.find[frame_id].is_evictable_=set_evictable;
         if(set_evictable){
             curr_size_++;
         }else{
