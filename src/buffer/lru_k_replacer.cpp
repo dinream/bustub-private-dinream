@@ -21,11 +21,11 @@ LRUKReplacer::LRUKReplacer(size_t num_frames, size_t k) : replacer_size_(num_fra
 auto LRUKReplacer::Evict(frame_id_t *frame_id) -> bool {
     if(curr_size_<1)return false;
     if(below_k_.size()>0){
-        frame_id = &(below_k_.begin().first);
-        below_k_.erase(below_k_.begin());
+        *frame_id = (below_k_.begin()->first);
+        below_k_.erase(*frame_id);
     }else{
-        frame_id=&(over_k_.begin().first);
-        over_k_.erase(over_k.begin());
+        *frame_id=(std::prev(over_k_.end())->first);
+        over_k_.erase(*frame_id);
     }
     node_store_.erase(*frame_id);
     return true; 
@@ -38,14 +38,14 @@ void LRUKReplacer::RecordAccess(frame_id_t frame_id, [[maybe_unused]] AccessType
     //store_node---
     if(node_store_.find(frame_id)!=node_store_.end()){
         node_store_[frame_id].history_.push_back(current_timestamp_);
-        if(node_store_[frame_id].isevictable_){
+        if(node_store_[frame_id].is_evictable_){
             //current frame is evictable
             if(node_store_[frame_id].k_<k_){
                 node_store_[frame_id].k_++;
                 if(node_store_[frame_id].k_==k_){
                     //node_store_[frame_id].history_.begin()
                     size_t dis=below_k_[frame_id]-current_timestamp_;
-                    std::pair<frame_id_t,size_t>=std::make_pair(frame_id,dis);
+                    std::pair<frame_id_t,size_t> pp=std::make_pair(frame_id,dis);
                     //TODO:insert it into over_k_   remove it from below_k_
 
                 }
@@ -53,7 +53,7 @@ void LRUKReplacer::RecordAccess(frame_id_t frame_id, [[maybe_unused]] AccessType
             else if(node_store_[frame_id].k_==k_){
                 node_store_[frame_id].history_.pop_front();
                 //update
-                over_k_[frame_id]=node_store_[frame_id].history_.begin()-current_timestamp_;
+                over_k_[frame_id]=*(size_t *)&(node_store_[frame_id].history_.begin())-current_timestamp_;
 
             }
         }else{
@@ -86,15 +86,15 @@ void LRUKReplacer::SetEvictable(frame_id_t frame_id, bool set_evictable) {
             curr_size_++;
             if(node_store_[frame_id].k_<k_){
                 //insert into below_k_
-                std::pair<frame_id_t,size_t> new_temp=std::make_pair(frame_id,node_store_[frame_id].history_.begin());
-                auto it = std::upper_bound(below_k_.begin(),below_k_.end(),new_temp, CmpTimestamp);
+                std::pair<frame_id_t,size_t> new_temp=std::make_pair(frame_id,*(size_t*)&node_store_[frame_id].history_.begin());
+                auto it = std::upper_bound(below_k_.begin(),below_k_.end(),new_temp, mycmp);
                 it = below_k_.insert(it,new_temp);
 
             }
             else {
                 //insert into over_k_
-                std::pair<frame_id_t,size_t> new_temp=std::make_pair(frame_id,node_store_[frame_id].history_.rbegin()-node_store_[frame_id].history_.begin());
-                auto it = std::upper_bound(over_k_.begin(),over_k_.end(),new_temp,CmpTimeStamp);
+                std::pair<frame_id_t,size_t> new_temp=std::make_pair(frame_id,*(size_t*)&node_store_[frame_id].history_.rbegin()-*(size_t*)&node_store_[frame_id].history_.begin());
+                auto it = std::upper_bound(over_k_.begin(),over_k_.end(),new_temp,mycmp);
                 it = over_k_.insert(it,new_temp);
             }
         }else{
@@ -118,7 +118,7 @@ void LRUKReplacer::Remove(frame_id_t frame_id) {
         // this frame_id is non-evictable;
         return;
     }
-    if(!node_store_.find(frame_id).is_evictable_){
+    if(!node_store_.find(frame_id)->second.is_evictable_){
         // this frame_id is non-evictable;
         exit(-1);
     }
@@ -131,5 +131,7 @@ void LRUKReplacer::Remove(frame_id_t frame_id) {
 auto LRUKReplacer::Size() -> size_t { 
     return curr_size_; 
 }
-
+bool mycmp(std::pair<frame_id_t,size_t> elem1,std::pair<frame_id_t,size_t> elem2){
+    return elem1.second>elem2.second;
+}
 }  // namespace bustub
