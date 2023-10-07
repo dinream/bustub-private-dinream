@@ -22,12 +22,12 @@ auto LRUKReplacer::Evict(frame_id_t *frame_id) -> bool {
     if(curr_size_<1)return false;
     if(below_k_.size()>0){
         frame_id = &(below_k_.begin().first);
-        below_k_.remove(0);
+        below_k_.erase(below_k_.begin());
     }else{
         frame_id=&(over_k_.begin().first);
-        over_k_.remove(0);
+        over_k_.erase(over_k.begin());
     }
-    node_store_.remove(*frame_id);
+    node_store_.erase(*frame_id);
     return true; 
 }
 
@@ -100,10 +100,10 @@ void LRUKReplacer::SetEvictable(frame_id_t frame_id, bool set_evictable) {
         }else{
             curr_size_--;
             if(node_store_[frame_id].k_<k_){
-                below_k_.remove(frame_id);
+                below_k_.erase(frame_id);
             }
             else{
-                over_k_.remove(frame_id);
+                over_k_.erase(frame_id);
             }
         }
     }
