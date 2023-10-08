@@ -45,8 +45,11 @@ void LRUKReplacer::RecordAccess(frame_id_t frame_id, [[maybe_unused]] AccessType
                 if(node_store_[frame_id].k_==k_){
                     //node_store_[frame_id].history_.begin()
                     size_t dis=below_k_[frame_id]-current_timestamp_;
-                    std::pair<frame_id_t,size_t> pp=std::make_pair(frame_id,dis);
+                    std::pair<frame_id_t,size_t> newtemp=std::make_pair(frame_id,dis);
                     //TODO:insert it into over_k_   remove it from below_k_
+                    below_k_.erase(frame_id);
+                    auto it = std::upper_bound(over_k_.begin(),over_k_.end(),new_temp,mycmp);
+                    it = over_k_.insert(it,new_temp);
 
                 }
             }
