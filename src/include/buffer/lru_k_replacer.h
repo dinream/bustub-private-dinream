@@ -29,15 +29,11 @@ class LRUKNode {
  public:
   /** History of last seen K timestamps of this page. Least recent timestamp stored in front. */
   // Remove maybe_unused if you start using them. Feel free to change the member variables as you want.
-
-  std::list<size_t> history_;
-  size_t k_{0};
   std::list<size_t> history_;
   size_t k_{0};
   frame_id_t fid_;
   bool is_evictable_{false};
-public:
-  LRUKNode(frame_id_t fid_);
+
 };
 
 /**
@@ -165,7 +161,7 @@ class LRUKReplacer {
   [[maybe_unused]] size_t k_;
   [[maybe_unused]] std::mutex latch_;
   bool* evictable_;
-  bool mycmp(std::pair<frame_id_t,size_t> elem1,std::pair<frame_id_t,size_t> elem2);
+  static auto MyCmp(std::pair<frame_id_t,size_t> elem1,std::pair<frame_id_t,size_t> elem2)->bool;
 };
 
 }  // namespace bustub
