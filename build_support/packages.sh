@@ -79,7 +79,6 @@ install_mac() {
   brew ls --versions doxygen || brew install doxygen
   brew ls --versions git || brew install git
   (brew ls --versions llvm | grep 14) || brew install llvm@14
-  brew ls --versions libelf || brew install libelf
 }
 
 install_linux() {
@@ -95,9 +94,7 @@ install_linux() {
       doxygen \
       git \
       pkg-config \
-      zlib1g-dev \
-      libelf-dev \
-      libdwarf-dev
+      zlib1g-dev
 }
 
 main "$@"

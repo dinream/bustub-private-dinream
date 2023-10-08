@@ -55,10 +55,4 @@ TEST(IsolationLevelTest, DISABLED_InsertTestA) {
                ExpectedOutcome::DirtyRead);
 }
 
-// NOLINTNEXTLINE
-TEST(IsolationLevelTest, DISABLED_DeleteTestA) {
-  ExpectTwoTxn("DeleteTestA.1", IsolationLevel::READ_COMMITTED, IsolationLevel::READ_UNCOMMITTED, false, IS_DELETE,
-               ExpectedOutcome::BlockOnRead);
-}
-
 }  // namespace bustub

@@ -86,7 +86,7 @@ class Tuple {
   // Get the address of this tuple in the table's backing store
   inline auto GetData() const -> const char * { return data_.data(); }
 
-  // Get length of the tuple, including varchar length
+  // Get length of the tuple, including varchar legth
   inline auto GetLength() const -> uint32_t { return data_.size(); }
 
   // Get the value of a specified column (const)

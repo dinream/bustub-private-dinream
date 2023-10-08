@@ -20,7 +20,6 @@
 #include "catalog/catalog.h"
 #include "common/macros.h"
 #include "storage/table/table_heap.h"
-
 namespace bustub {
 
 void TransactionManager::Commit(Transaction *txn) {
