@@ -3,28 +3,66 @@
 
 namespace bustub {
 
-BasicPageGuard::BasicPageGuard(BasicPageGuard &&that) noexcept {}
+BasicPageGuard::BasicPageGuard(BasicPageGuard &&that) noexcept {
+    bpm_=that.bpm_;
+    page_=that.page_;
+    is_dirty_=that.is_dirty_;
+}
 
-void BasicPageGuard::Drop() {}
+void BasicPageGuard::Drop() {
+    bpm_->UnpinPage(page_->GetPageId(),  is_dirty_);
+}
+//移动赋值构造函数：记得要先将自己Drop 释放出锁 和pin_coun
+auto BasicPageGuard::operator=(BasicPageGuard &&that) noexcept -> BasicPageGuard & { 
+    bpm_=that.bpm_;
+    page_=that.page_;
+    is_dirty_=that.is_dirty_;
+    return *this;  
+}
 
-auto BasicPageGuard::operator=(BasicPageGuard &&that) noexcept -> BasicPageGuard & { return *this; }
-
-BasicPageGuard::~BasicPageGuard(){};  // NOLINT
+BasicPageGuard::~BasicPageGuard(){
+    bpm_->UnpinPage(page_->GetPageId(),is_dirty_);
+};  // NOLINT
 
 ReadPageGuard::ReadPageGuard(ReadPageGuard &&that) noexcept = default;
 
-auto ReadPageGuard::operator=(ReadPageGuard &&that) noexcept -> ReadPageGuard & { return *this; }
+auto ReadPageGuard::operator=(ReadPageGuard &&that) noexcept -> ReadPageGuard & {
+    this->guard_.page_=that.guard_.page_;
+    this->guard_.bpm_=that.guard_.bpm_;
+    this->guard_.is_dirty_=that.guard_.is_dirty_;
+    guard_.page_->RLatch();
+    return *this;
+     
+}
 
-void ReadPageGuard::Drop() {}
+void ReadPageGuard::Drop() {
+    //
+}
 
-ReadPageGuard::~ReadPageGuard() {}  // NOLINT
+ReadPageGuard::~ReadPageGuard() {
+    this->guard_.page_->RUnlatch();
+    //释放
+}  // NOLINT
 
 WritePageGuard::WritePageGuard(WritePageGuard &&that) noexcept = default;
 
-auto WritePageGuard::operator=(WritePageGuard &&that) noexcept -> WritePageGuard & { return *this; }
+auto WritePageGuard::operator=(WritePageGuard &&that) noexcept -> WritePageGuard & {
+    this->guard_.page_=that.guard_.page_;
+    this->guard_.bpm_=that.guard_.bpm_;
+    this->guard_.is_dirty_=that.guard_.is_dirty_;
+    guard_.page_->WLatch();
+    return *this; 
+    
+}
 
-void WritePageGuard::Drop() {}
+void WritePageGuard::Drop() {
+    //
 
-WritePageGuard::~WritePageGuard() {}  // NOLINT
+}
+
+WritePageGuard::~WritePageGuard() {
+   guard_.page_->WUnlatch();
+    //释放锁
+}  // NOLINT
 
 }  // namespace bustub
