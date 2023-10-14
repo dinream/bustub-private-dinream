@@ -12,12 +12,12 @@
 
 #pragma once
 
+#include <algorithm>
 #include <limits>
 #include <list>
 #include <mutex>  // NOLINT
 #include <unordered_map>
 #include <vector>
-#include <algorithm>
 #include "common/config.h"
 #include "common/macros.h"
 
@@ -33,7 +33,6 @@ class LRUKNode {
   size_t k_{0};
   frame_id_t fid_;
   bool is_evictable_{false};
-
 };
 
 /**
@@ -160,8 +159,8 @@ class LRUKReplacer {
   [[maybe_unused]] size_t replacer_size_;
   [[maybe_unused]] size_t k_;
   [[maybe_unused]] std::mutex latch_;
-  bool* evictable_;
-  static auto MyCmp(std::pair<frame_id_t,size_t> elem1,std::pair<frame_id_t,size_t> elem2)->bool;
+  bool *evictable_;
+  static auto MyCmp(std::pair<frame_id_t, size_t> elem1, std::pair<frame_id_t, size_t> elem2) -> bool;
 };
 
 }  // namespace bustub

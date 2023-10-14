@@ -16,160 +16,153 @@
 
 namespace bustub {
 
-
 LRUKReplacer::LRUKReplacer(size_t num_frames, size_t k) : replacer_size_(num_frames), k_(k) {}
 
 auto LRUKReplacer::Evict(frame_id_t *frame_id) -> bool {
-    if(curr_size_<1) {
-        return false;
-    }
-    frame_id_t temp_t;
-    for(auto & it : below_k_) {
-        frame_id_t key = it.first;
-        key++;
-        size_t value = it.second;
-        value++;
-    }
-    if(!below_k_.empty()){
-        auto it =below_k_.begin();
-        auto previt = below_k_.begin();
+  if (curr_size_ < 1) {
+    return false;
+  }
+  frame_id_t temp_t;
+  for (auto &it : below_k_) {
+    frame_id_t key = it.first;
+    key++;
+    size_t value = it.second;
+    value++;
+  }
+  if (!below_k_.empty()) {
+    auto it = below_k_.begin();
+    auto previt = below_k_.begin();
 
-        // 在容器中遍历，找到倒数第二个元素的迭代器
-        while (it != below_k_.end()) {
-            previt = it;
-            ++it;
-        }
-        
-        temp_t= previt->first;//(below_k_.begin()->first);
-        below_k_.erase(temp_t);
-    }else{
-        auto it =over_k_.begin();
-        auto previt = over_k_.begin();
-
-        // 在容器中遍历，找到倒数第二个元素的迭代器
-        while (it != over_k_.end()) {
-            previt = it;
-            ++it;
-        }
-        temp_t=previt->first;
-        over_k_.erase(temp_t);
+    // 在容器中遍历，找到倒数第二个元素的迭代器
+    while (it != below_k_.end()) {
+      previt = it;
+      ++it;
     }
-    node_store_.erase(temp_t);
-    *frame_id=temp_t;
-    curr_size_--;
-    return true; 
+
+    temp_t = previt->first;  //(below_k_.begin()->first);
+    below_k_.erase(temp_t);
+  } else {
+    auto it = over_k_.begin();
+    auto previt = over_k_.begin();
+
+    // 在容器中遍历，找到倒数第二个元素的迭代器
+    while (it != over_k_.end()) {
+      previt = it;
+      ++it;
+    }
+    temp_t = previt->first;
+    over_k_.erase(temp_t);
+  }
+  node_store_.erase(temp_t);
+  *frame_id = temp_t;
+  curr_size_--;
+  return true;
 }
 
 void LRUKReplacer::RecordAccess(frame_id_t frame_id, [[maybe_unused]] AccessType access_type) {
-    if(frame_id<0||frame_id >= static_cast<int>(replacer_size_)){
-        exit(-1);//帧的大小 小于0 或者 大于了 替换器大小，无法访问。
-    }
-    //store_node---
-    if(node_store_.find(frame_id)!=node_store_.end()){
-        node_store_[frame_id].history_.push_back(current_timestamp_);
-        if(node_store_[frame_id].is_evictable_){
-            //current frame is evictable
-            if(node_store_[frame_id].k_<k_){
-                node_store_[frame_id].k_++;
-                if(node_store_[frame_id].k_==k_){
-                    //node_store_[frame_id].history_.begin()
-                    size_t dis=current_timestamp_-below_k_[frame_id];
-                    std::pair<frame_id_t,size_t> new_temp=std::make_pair(frame_id,dis);
-                 
-                    below_k_.erase(frame_id);
-                    auto it = std::upper_bound(over_k_.begin(),over_k_.end(),new_temp,LRUKReplacer::MyCmp);
-                    it = over_k_.insert(it,new_temp);
+  if (frame_id < 0 || frame_id >= static_cast<int>(replacer_size_)) {
+    exit(-1);  //帧的大小 小于0 或者 大于了 替换器大小，无法访问。
+  }
+  // store_node---
+  if (node_store_.find(frame_id) != node_store_.end()) {
+    node_store_[frame_id].history_.push_back(current_timestamp_);
+    if (node_store_[frame_id].is_evictable_) {
+      // current frame is evictable
+      if (node_store_[frame_id].k_ < k_) {
+        node_store_[frame_id].k_++;
+        if (node_store_[frame_id].k_ == k_) {
+          // node_store_[frame_id].history_.begin()
+          size_t dis = current_timestamp_ - below_k_[frame_id];
+          std::pair<frame_id_t, size_t> new_temp = std::make_pair(frame_id, dis);
 
-                }
-            }
-            else if(node_store_[frame_id].k_==k_){
-                node_store_[frame_id].history_.pop_front();
-                //update
-                over_k_[frame_id]=current_timestamp_-static_cast<size_t>(*node_store_[frame_id].history_.begin());
-
-            }
-        }else{
-            if(node_store_[frame_id].k_<k_){
-                node_store_[frame_id].k_++;
-            }else if(node_store_[frame_id].k_==k_){
-                node_store_[frame_id].history_.pop_front();
-            }
+          below_k_.erase(frame_id);
+          auto it = std::upper_bound(over_k_.begin(), over_k_.end(), new_temp, LRUKReplacer::MyCmp);
+          it = over_k_.insert(it, new_temp);
         }
-    }else{
-        auto* node =new LRUKNode();
-        node->history_.push_back(current_timestamp_);
-        node->k_++;
-        node->fid_=frame_id;
-        //node_store_[frame_id]=*node;
-        node_store_.insert(std::make_pair(frame_id, *node));
+      } else if (node_store_[frame_id].k_ == k_) {
+        node_store_[frame_id].history_.pop_front();
+        // update
+        over_k_[frame_id] = current_timestamp_ - static_cast<size_t>(*node_store_[frame_id].history_.begin());
+      }
+    } else {
+      if (node_store_[frame_id].k_ < k_) {
+        node_store_[frame_id].k_++;
+      } else if (node_store_[frame_id].k_ == k_) {
+        node_store_[frame_id].history_.pop_front();
+      }
     }
-    current_timestamp_++;
+  } else {
+    auto *node = new LRUKNode();
+    node->history_.push_back(current_timestamp_);
+    node->k_++;
+    node->fid_ = frame_id;
+    // node_store_[frame_id]=*node;
+    node_store_.insert(std::make_pair(frame_id, *node));
+  }
+  current_timestamp_++;
 }
 
 void LRUKReplacer::SetEvictable(frame_id_t frame_id, bool set_evictable) {
-    if(frame_id<0||frame_id>=static_cast<int>(replacer_size_)){
-        exit(-1);//帧的大小 小于0 或者 大于了 替换器大小，无法访问。
-    }
-    if(node_store_.find(frame_id)==node_store_.end()){
-        //node_store_ don't include such frameid
-        exit(-1);
-    }
-    if(node_store_[frame_id].is_evictable_^set_evictable){
-        node_store_[frame_id].is_evictable_=set_evictable;
-        if(set_evictable){
-            curr_size_++;
-            if(node_store_[frame_id].k_<k_){
-                //insert into below_k_
-                std::pair<frame_id_t,size_t> new_temp=std::make_pair(frame_id,static_cast<size_t>(*node_store_[frame_id].history_.begin()));
-                auto it = std::lower_bound(below_k_.begin(),below_k_.end(),new_temp, LRUKReplacer::MyCmp);
-                it = below_k_.insert(it,new_temp);
+  if (frame_id < 0 || frame_id >= static_cast<int>(replacer_size_)) {
+    exit(-1);  //帧的大小 小于0 或者 大于了 替换器大小，无法访问。
+  }
+  if (node_store_.find(frame_id) == node_store_.end()) {
+    // node_store_ don't include such frameid
+    exit(-1);
+  }
+  if (node_store_[frame_id].is_evictable_ ^ set_evictable) {
+    node_store_[frame_id].is_evictable_ = set_evictable;
+    if (set_evictable) {
+      curr_size_++;
+      if (node_store_[frame_id].k_ < k_) {
+        // insert into below_k_
+        std::pair<frame_id_t, size_t> new_temp =
+            std::make_pair(frame_id, static_cast<size_t>(*node_store_[frame_id].history_.begin()));
+        auto it = std::lower_bound(below_k_.begin(), below_k_.end(), new_temp, LRUKReplacer::MyCmp);
+        it = below_k_.insert(it, new_temp);
 
-            }
-            else {
-                //insert into over_k_
-                std::pair<frame_id_t,size_t> new_temp=std::make_pair(frame_id,static_cast<size_t>(*node_store_[frame_id].history_.rbegin())-static_cast<size_t>(*node_store_[frame_id].history_.begin()));
-                auto it = std::upper_bound(over_k_.begin(),over_k_.end(),new_temp,LRUKReplacer::MyCmp);
-                it = over_k_.insert(it,new_temp);
-            }
-        }else{
-            curr_size_--;
-            if(node_store_[frame_id].k_<k_){
-                below_k_.erase(frame_id);
-            }
-            else{
-                over_k_.erase(frame_id);
-            }
-        }
-    }
-
-}
-
-void LRUKReplacer::Remove(frame_id_t frame_id) { 
-    if(frame_id<0||frame_id>=static_cast<int>(replacer_size_)){
-        exit(-1);//帧的大小 小于0 或者 大于了 替换器大小，无法访问。
-    }
-    if(node_store_.find(frame_id)==node_store_.end()){
-        // this frame_id is non-evictable;
-        return;
-    }
-    if(!node_store_.find(frame_id)->second.is_evictable_){
-        // this frame_id is non-evictable;
-        exit(-1);
-    }
-    if(node_store_[frame_id].k_<k_){
+      } else {
+        // insert into over_k_
+        std::pair<frame_id_t, size_t> new_temp =
+            std::make_pair(frame_id, static_cast<size_t>(*node_store_[frame_id].history_.rbegin()) -
+                                         static_cast<size_t>(*node_store_[frame_id].history_.begin()));
+        auto it = std::upper_bound(over_k_.begin(), over_k_.end(), new_temp, LRUKReplacer::MyCmp);
+        it = over_k_.insert(it, new_temp);
+      }
+    } else {
+      curr_size_--;
+      if (node_store_[frame_id].k_ < k_) {
         below_k_.erase(frame_id);
-    }    
-    else {
+      } else {
         over_k_.erase(frame_id);
+      }
     }
-    node_store_.erase(frame_id);
-    curr_size_--;
+  }
 }
 
-auto LRUKReplacer::Size() -> size_t { 
-    return curr_size_; 
+void LRUKReplacer::Remove(frame_id_t frame_id) {
+  if (frame_id < 0 || frame_id >= static_cast<int>(replacer_size_)) {
+    exit(-1);  //帧的大小 小于0 或者 大于了 替换器大小，无法访问。
+  }
+  if (node_store_.find(frame_id) == node_store_.end()) {
+    // this frame_id is non-evictable;
+    return;
+  }
+  if (!node_store_.find(frame_id)->second.is_evictable_) {
+    // this frame_id is non-evictable;
+    exit(-1);
+  }
+  if (node_store_[frame_id].k_ < k_) {
+    below_k_.erase(frame_id);
+  } else {
+    over_k_.erase(frame_id);
+  }
+  node_store_.erase(frame_id);
+  curr_size_--;
 }
-auto LRUKReplacer::MyCmp(std::pair<frame_id_t,size_t> elem1,std::pair<frame_id_t,size_t> elem2)->bool{
-    return elem1.second > elem2.second;
+
+auto LRUKReplacer::Size() -> size_t { return curr_size_; }
+auto LRUKReplacer::MyCmp(std::pair<frame_id_t, size_t> elem1, std::pair<frame_id_t, size_t> elem2) -> bool {
+  return elem1.second > elem2.second;
 }
 }  // namespace bustub
