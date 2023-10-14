@@ -39,7 +39,7 @@ auto LRUKReplacer::Evict(frame_id_t *frame_id) -> bool {
       ++it;
     }
 
-    temp_t = previt->first;  //(below_k_.begin()->first);
+    temp_t = previt->first;  // (below_k_.begin()->first);
     below_k_.erase(temp_t);
   } else {
     auto it = over_k_.begin();
@@ -61,7 +61,7 @@ auto LRUKReplacer::Evict(frame_id_t *frame_id) -> bool {
 
 void LRUKReplacer::RecordAccess(frame_id_t frame_id, [[maybe_unused]] AccessType access_type) {
   if (frame_id < 0 || frame_id >= static_cast<int>(replacer_size_)) {
-    exit(-1);  //帧的大小 小于0 或者 大于了 替换器大小，无法访问。
+    exit(-1);  // 帧的大小 小于0 或者 大于了 替换器大小，无法访问。
   }
   // store_node---
   if (node_store_.find(frame_id) != node_store_.end()) {
@@ -104,7 +104,7 @@ void LRUKReplacer::RecordAccess(frame_id_t frame_id, [[maybe_unused]] AccessType
 
 void LRUKReplacer::SetEvictable(frame_id_t frame_id, bool set_evictable) {
   if (frame_id < 0 || frame_id >= static_cast<int>(replacer_size_)) {
-    exit(-1);  //帧的大小 小于0 或者 大于了 替换器大小，无法访问。
+    exit(-1);  // 帧的大小 小于0 或者 大于了 替换器大小，无法访问。
   }
   if (node_store_.find(frame_id) == node_store_.end()) {
     // node_store_ don't include such frameid
@@ -142,7 +142,7 @@ void LRUKReplacer::SetEvictable(frame_id_t frame_id, bool set_evictable) {
 
 void LRUKReplacer::Remove(frame_id_t frame_id) {
   if (frame_id < 0 || frame_id >= static_cast<int>(replacer_size_)) {
-    exit(-1);  //帧的大小 小于0 或者 大于了 替换器大小，无法访问。
+    exit(-1);  // 帧的大小 小于0 或者 大于了 替换器大小，无法访问。
   }
   if (node_store_.find(frame_id) == node_store_.end()) {
     // this frame_id is non-evictable;

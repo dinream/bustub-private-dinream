@@ -44,7 +44,7 @@ BufferPoolManager::BufferPoolManager(size_t pool_size, DiskManager *disk_manager
 BufferPoolManager::~BufferPoolManager() { delete[] pages_; }
 
 auto BufferPoolManager::NewPage(page_id_t *page_id) -> Page * {
-  //理解 ：让 缓冲池 多管理一个页面
+  // 理解 ：让 缓冲池 多管理一个页面
   if (replacer_->Size() == 0 && free_list_.empty()) {
     return nullptr;
   }
@@ -76,7 +76,7 @@ auto BufferPoolManager::NewPage(page_id_t *page_id) -> Page * {
 }
 
 auto BufferPoolManager::FetchPage(page_id_t page_id, [[maybe_unused]] AccessType access_type) -> Page * {
-  //设想进程请求页面
+  // 设想进程请求页面
   // for (size_t i = 0; i < pool_size_; ++i) {
   //   if(pages_[i].GetPageId()==page_id){
   //     replacer_->RecordAccess(i);
@@ -132,9 +132,9 @@ auto BufferPoolManager::UnpinPage(page_id_t page_id, bool is_dirty, [[maybe_unus
     replacer_->SetEvictable(it->second, true);
     return true;
   }
-  //优化，使用 page_table_
+  // 优化，使用 page_table_
 
-  //设想是一个进程结束调用了它
+  // 设想是一个进程结束调用了它
   return false;
 }
 
@@ -302,7 +302,7 @@ auto BufferPoolManager::FetchPageWrite(page_id_t page_id) -> WritePageGuard {
 }
 
 auto BufferPoolManager::NewPageGuarded(page_id_t *page_id) -> BasicPageGuard {
-  //理解 ：让 缓冲池 多管理一个页面
+  // 理解 ：让 缓冲池 多管理一个页面
   if (replacer_->Size() == 0 && free_list_.empty()) {
     return {this, nullptr};
   }

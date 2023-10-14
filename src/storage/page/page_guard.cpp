@@ -10,7 +10,7 @@ BasicPageGuard::BasicPageGuard(BasicPageGuard &&that) noexcept {
 }
 
 void BasicPageGuard::Drop() { bpm_->UnpinPage(page_->GetPageId(), is_dirty_); }
-//移动赋值构造函数：记得要先将自己Drop 释放出锁 和pin_coun
+// 移动赋值构造函数：记得要先将自己Drop 释放出锁 和pin_coun
 auto BasicPageGuard::operator=(BasicPageGuard &&that) noexcept -> BasicPageGuard & {
   bpm_ = that.bpm_;
   page_ = that.page_;
@@ -36,7 +36,7 @@ void ReadPageGuard::Drop() {
 
 ReadPageGuard::~ReadPageGuard() {
   this->guard_.page_->RUnlatch();
-  //释放
+  // 释放
 }  // NOLINT
 
 WritePageGuard::WritePageGuard(WritePageGuard &&that) noexcept = default;
@@ -55,7 +55,7 @@ void WritePageGuard::Drop() {
 
 WritePageGuard::~WritePageGuard() {
   guard_.page_->WUnlatch();
-  //释放锁
+  // 释放锁
 }  // NOLINT
 
 }  // namespace bustub
