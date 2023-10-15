@@ -54,6 +54,7 @@ auto LRUKReplacer::Evict(frame_id_t *frame_id) -> bool {
     over_k_.erase(temp_t);
   }
   node_store_.erase(temp_t);
+
   *frame_id = temp_t;
   curr_size_--;
   return true;
@@ -98,6 +99,7 @@ void LRUKReplacer::RecordAccess(frame_id_t frame_id, [[maybe_unused]] AccessType
     node->fid_ = frame_id;
     // node_store_[frame_id]=*node;
     node_store_.insert(std::make_pair(frame_id, *node));
+    delete node;
   }
   current_timestamp_++;
 }
@@ -158,11 +160,12 @@ void LRUKReplacer::Remove(frame_id_t frame_id) {
     over_k_.erase(frame_id);
   }
   node_store_.erase(frame_id);
+
   curr_size_--;
 }
 
 auto LRUKReplacer::Size() -> size_t { return curr_size_; }
 auto LRUKReplacer::MyCmp(std::pair<frame_id_t, size_t> elem1, std::pair<frame_id_t, size_t> elem2) -> bool {
-  return elem1.second > elem2.second;
+  return elem1.second >= elem2.second;
 }
 }  // namespace bustub
