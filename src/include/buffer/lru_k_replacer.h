@@ -13,6 +13,7 @@
 #pragma once
 
 #include <algorithm>
+#include <iostream>
 #include <limits>
 #include <list>
 #include <mutex>  // NOLINT
@@ -21,7 +22,6 @@
 #include <vector>
 #include "common/config.h"
 #include "common/macros.h"
-
 namespace bustub {
 
 enum class AccessType { Unknown = 0, Lookup, Scan, Index, Get };
