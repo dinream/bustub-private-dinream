@@ -16,6 +16,7 @@
 #include <iostream>
 #include <limits>
 #include <list>
+#include <map>
 #include <mutex>  // NOLINT
 #include <unordered_map>
 #include <utility>
@@ -147,14 +148,24 @@ class LRUKReplacer {
    */
   auto Size() -> size_t;
 
+  /**
+   *
+   * @brief Enroll the map.
+   *
+   * @return non
+   */
+  void Eroll(frame_id_t frame_id);
+
  private:
   // TODO(student): implement me! You can replace these member variables as you like.
   // Remove maybe_unused if you start using them.
   std::unordered_map<frame_id_t, LRUKNode> node_store_;
   // TO save the evitable frames whose his-len is over k_
-  std::unordered_map<frame_id_t, size_t> over_k_;
+  std::map<frame_id_t, size_t> over_k_;
+  std::list<frame_id_t> over_;
   // TO save the evitable frames whose his-len is lower than k_
-  std::unordered_map<frame_id_t, size_t> below_k_;
+  std::map<frame_id_t, size_t> below_k_;
+  std::list<frame_id_t> below_;
   [[maybe_unused]] size_t current_timestamp_{0};
   [[maybe_unused]] size_t curr_size_{0};
   [[maybe_unused]] size_t replacer_size_;

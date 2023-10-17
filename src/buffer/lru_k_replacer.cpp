@@ -11,7 +11,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "buffer/lru_k_replacer.h"
+#include <cstddef>
+#include <iterator>
 #include <utility>
+#include "common/config.h"
 #include "common/exception.h"
 
 namespace bustub {
@@ -23,81 +26,104 @@ LRUKReplacer::LRUKReplacer(size_t num_frames, size_t k) : replacer_size_(num_fra
 }
 
 auto LRUKReplacer::Evict(frame_id_t *frame_id) -> bool {
-  std::cout << "==IN========Evict======"
-            << "---frame_id:" << *frame_id << " ----- --------- " << std::endl;
+  // latch_.lock();
+  std::lock_guard<std::mutex> lock(latch_);
   if (curr_size_ < 1) {
     return false;
   }
   frame_id_t temp_t;
-  for (auto &it : below_k_) {
-    frame_id_t key = it.first;
-    key++;
-    size_t value = it.second;
-    value++;
-  }
-  if (!below_k_.empty()) {
-    auto it = below_k_.begin();
-    auto previt = below_k_.begin();
-
-    // 在容器中遍历，找到倒数第二个元素的迭代器
-    while (it != below_k_.end()) {
-      previt = it;
-      ++it;
-    }
-
-    temp_t = previt->first;  // (below_k_.begin()->first);
+  if (!below_.empty()) {  // 选择 below  中最小的删除
+    temp_t = *below_.begin();
     below_k_.erase(temp_t);
-  } else {
-    auto it = over_k_.begin();
-    auto previt = over_k_.begin();
-
-    // 在容器中遍历，找到倒数第二个元素的迭代器
-    while (it != over_k_.end()) {
-      previt = it;
-      ++it;
-    }
-    temp_t = previt->first;
+    below_.pop_front();
+  } else {  // 选择 over  中 最大的删除
+    temp_t = *over_.begin();
     over_k_.erase(temp_t);
+    over_.pop_front();
   }
   node_store_.erase(temp_t);
 
   *frame_id = temp_t;
   curr_size_--;
-  std::cout << "==OUT========LRUKReplacer======"
-            << "---replacer_size_:" << *frame_id << " ----- "
-            << "Size():" << Size() << " --------- " << std::endl;
+  if (*frame_id >= 500 && *frame_id <= 749) {
+    std::cout << current_timestamp_ << "==IN=Evict"
+              << "---" << *frame_id << "" << std::endl;
+    if (*frame_id == 749 || *frame_id == 750) {
+      std::cout << "hahahahahaha" << std::endl;
+      std::cout << " 749: " << std::endl;
+      Eroll(749);
+      std::cout << "  750: " << std::endl;
+      Eroll(750);
+    }
+  }
+
   return true;
 }
 
 void LRUKReplacer::RecordAccess(frame_id_t frame_id, [[maybe_unused]] AccessType access_type) {
-  std::cout << "==IN========RecordAccess======"
-            << "---frame_id:" << frame_id << " ----- "
-            << "Size():" << Size() << " --------- " << std::endl;
+  if (frame_id >= 500 && frame_id <= 749) {
+    std::cout << current_timestamp_ << "==IN==RecordAccess"
+              << "---" << frame_id << "  "
+              << "curr_size_:" << curr_size_ << "" << std::endl;
+    if (frame_id == 749 || frame_id == 750) {
+      std::cout << "hahahahahaha" << std::endl;
+      std::cout << " 749: ";
+      Eroll(749);
+      std::cout << "  750: ";
+      Eroll(750);
+    }
+  }
 
   if (frame_id < 0 || frame_id >= static_cast<int>(replacer_size_)) {
     exit(-1);  // 帧的大小 小于0 或者 大于了 替换器大小，无法访问。
   }
-  // store_node---
+  std::lock_guard<std::mutex> lock(latch_);
   if (node_store_.find(frame_id) != node_store_.end()) {
     node_store_[frame_id].history_.push_back(current_timestamp_);
     if (node_store_[frame_id].is_evictable_) {
       // current frame is evictable
+      size_t dis;
       if (node_store_[frame_id].k_ < k_) {
         node_store_[frame_id].k_++;
         if (node_store_[frame_id].k_ == k_) {
           // node_store_[frame_id].history_.begin()
-          size_t dis = current_timestamp_ - below_k_[frame_id];
+          dis = below_k_[frame_id];
           std::pair<frame_id_t, size_t> new_temp = std::make_pair(frame_id, dis);
-
           below_k_.erase(frame_id);
-          auto it = std::upper_bound(over_k_.begin(), over_k_.end(), new_temp, LRUKReplacer::MyCmp);
-          it = over_k_.insert(it, new_temp);
+          below_.remove(frame_id);  // 删掉，纯净一些
+          auto it = over_.begin();
+          while (it != over_.end()) {
+            if (over_k_.find(*it)->second > new_temp.second) {
+              over_.insert(it, frame_id);
+              break;
+            }
+            it++;
+          }
+          if (it == over_.end()) {
+            over_.push_back(frame_id);
+          }
+          over_k_.insert(new_temp);
         }
       } else if (node_store_[frame_id].k_ == k_) {
         node_store_[frame_id].history_.pop_front();
-        // update
-        over_k_[frame_id] = current_timestamp_ - static_cast<size_t>(*node_store_[frame_id].history_.begin());
+        dis = static_cast<size_t>(*node_store_[frame_id].history_.begin());
+        std::pair<frame_id_t, size_t> new_temp = std::make_pair(frame_id, dis);
+        over_.remove(frame_id);
+        over_k_.erase(frame_id);
+        auto it = over_.begin();
+        while (it != over_.end()) {
+          if (over_k_.find(*it)->second > new_temp.second) {
+            over_.insert(it, frame_id);
+            break;
+          }
+          it++;
+        }
+        if (it == over_.end()) {
+          over_.push_back(frame_id);
+        }
+        over_k_.insert(new_temp);
       }
+
     } else {
       if (node_store_[frame_id].k_ < k_) {
         node_store_[frame_id].k_++;
@@ -114,19 +140,19 @@ void LRUKReplacer::RecordAccess(frame_id_t frame_id, [[maybe_unused]] AccessType
     node_store_.insert(std::make_pair(frame_id, *node));
     delete node;
   }
-  std::cout << "==OUT========RecordAccess======"
-            << "---frame_id:" << frame_id << " ----- "
-            << "Size():" << Size() << " --------- " << std::endl;
   current_timestamp_++;
 }
 
 void LRUKReplacer::SetEvictable(frame_id_t frame_id, bool set_evictable) {
-  std::cout << "==IN========SetEvictable======"
-            << "---frame_id:" << frame_id << " ----- "
-            << "set_evictable:" << set_evictable << " --------- " << std::endl;
+  if (frame_id >= 500 && frame_id <= 749) {
+    std::cout << current_timestamp_ << "==IN==SetEvictable"
+              << "---" << frame_id << "  "
+              << "set_evictable:" << set_evictable << "  " << std::endl;
+  }
   if (frame_id < 0 || frame_id >= static_cast<int>(replacer_size_)) {
     exit(-1);  // 帧的大小 小于0 或者 大于了 替换器大小，无法访问。
   }
+  std::lock_guard<std::mutex> lock(latch_);
   if (node_store_.find(frame_id) == node_store_.end()) {
     // node_store_ don't include such frameid
     exit(-1);
@@ -139,38 +165,59 @@ void LRUKReplacer::SetEvictable(frame_id_t frame_id, bool set_evictable) {
         // insert into below_k_
         std::pair<frame_id_t, size_t> new_temp =
             std::make_pair(frame_id, static_cast<size_t>(*node_store_[frame_id].history_.begin()));
-        auto it = std::lower_bound(below_k_.begin(), below_k_.end(), new_temp, LRUKReplacer::MyCmp);
-        it = below_k_.insert(it, new_temp);
-
+        auto it = below_.begin();
+        while (it != below_.end()) {
+          if (below_k_.find(*it)->second > new_temp.second) {
+            below_.insert(it, frame_id);
+            break;
+          }
+          it++;
+        }
+        if (it == below_.end()) {
+          below_.push_back(frame_id);
+        }
+        below_k_.insert(new_temp);
       } else {
         // insert into over_k_
         std::pair<frame_id_t, size_t> new_temp =
-            std::make_pair(frame_id, static_cast<size_t>(*node_store_[frame_id].history_.rbegin()) -
-                                         static_cast<size_t>(*node_store_[frame_id].history_.begin()));
-        auto it = std::upper_bound(over_k_.begin(), over_k_.end(), new_temp, LRUKReplacer::MyCmp);
-        it = over_k_.insert(it, new_temp);
+            std::make_pair(frame_id, static_cast<size_t>(*node_store_[frame_id].history_.begin()));
+        auto it = over_.begin();
+        while (it != over_.end()) {
+          if (over_k_.find(*it)->second > new_temp.second) {
+            over_.insert(it, frame_id);
+            break;
+          }
+          it++;
+        }
+        if (it == over_.end()) {
+          over_.push_back(frame_id);
+        }
+        over_k_.insert(new_temp);
       }
     } else {
       curr_size_--;
       if (node_store_[frame_id].k_ < k_) {
         below_k_.erase(frame_id);
+        below_.remove(frame_id);
       } else {
         over_k_.erase(frame_id);
+        over_.remove(frame_id);
       }
     }
   }
-  std::cout << "==OUT========SetEvictable======"
-            << "---frame_id:" << frame_id << " ----- "
-            << "Size:" << Size() << " --------- " << std::endl;
 }
 
 void LRUKReplacer::Remove(frame_id_t frame_id) {
-  std::cout << "==IN========Remove======"
-            << "---frame_id:" << frame_id << " ----- "
-            << "Size:" << Size() << " --------- " << std::endl;
+  if (frame_id >= 500 && frame_id <= 749) {
+    std::cout << current_timestamp_ << "==IN==Remove"
+              << "---" << frame_id << "  "
+              << "curr_size_:" << curr_size_ << "  \n"
+              << std::endl;
+  }
   if (frame_id < 0 || frame_id >= static_cast<int>(replacer_size_)) {
     exit(-1);  // 帧的大小 小于0 或者 大于了 替换器大小，无法访问。
   }
+  std::lock_guard<std::mutex> lock(latch_);
   if (node_store_.find(frame_id) == node_store_.end()) {
     // this frame_id is non-evictable;
     return;
@@ -181,19 +228,32 @@ void LRUKReplacer::Remove(frame_id_t frame_id) {
   }
   if (node_store_[frame_id].k_ < k_) {
     below_k_.erase(frame_id);
+    below_.remove(frame_id);
   } else {
     over_k_.erase(frame_id);
+    over_.remove(frame_id);
   }
   node_store_.erase(frame_id);
 
   curr_size_--;
-  std::cout << "==OUT========Remove======"
-            << "---frame_id:" << frame_id << " ----- "
-            << "Size:" << Size() << " --------- " << std::endl;
 }
 
-auto LRUKReplacer::Size() -> size_t { return curr_size_; }
+auto LRUKReplacer::Size() -> size_t {
+  std::lock_guard<std::mutex> lock(latch_);
+  return curr_size_;
+}
 auto LRUKReplacer::MyCmp(std::pair<frame_id_t, size_t> elem1, std::pair<frame_id_t, size_t> elem2) -> bool {
   return elem1.second >= elem2.second;
+}
+
+void LRUKReplacer::Eroll(frame_id_t frame_id) {
+  auto cont = node_store_[frame_id].history_;
+  for (auto &it : cont) {
+    std::cout << static_cast<size_t>(it) << std::endl;
+  }
+  // for (auto &it : over_) {
+  //   std::cout << it;
+  // }
+  // std::cout << std::endl;
 }
 }  // namespace bustub
