@@ -30,9 +30,7 @@ auto ReadPageGuard::operator=(ReadPageGuard &&that) noexcept -> ReadPageGuard & 
   return *this;
 }
 
-void ReadPageGuard::Drop() {
-  //
-}
+void ReadPageGuard::Drop() { guard_.bpm_->UnpinPage(guard_.page_->GetPageId(), guard_.is_dirty_); }
 
 ReadPageGuard::~ReadPageGuard() {
   this->guard_.page_->RUnlatch();
@@ -50,7 +48,7 @@ auto WritePageGuard::operator=(WritePageGuard &&that) noexcept -> WritePageGuard
 }
 
 void WritePageGuard::Drop() {
-  //
+  guard_.bpm_->UnpinPage(guard_.page_->GetPageId(), guard_.is_dirty_); 
 }
 
 WritePageGuard::~WritePageGuard() {

@@ -19,11 +19,7 @@
 
 namespace bustub {
 
-LRUKReplacer::LRUKReplacer(size_t num_frames, size_t k) : replacer_size_(num_frames), k_(k) {
-  std::cout << "==========LRUKReplacer======"
-            << "---replacer_size_:" << num_frames << " ----- "
-            << "k_:" << k_ << " --------- " << std::endl;
-}
+LRUKReplacer::LRUKReplacer(size_t num_frames, size_t k) : replacer_size_(num_frames), k_(k) {}
 
 auto LRUKReplacer::Evict(frame_id_t *frame_id) -> bool {
   // latch_.lock();
@@ -45,35 +41,11 @@ auto LRUKReplacer::Evict(frame_id_t *frame_id) -> bool {
 
   *frame_id = temp_t;
   curr_size_--;
-  if (*frame_id >= 500 && *frame_id <= 749) {
-    std::cout << current_timestamp_ << "==IN=Evict"
-              << "---" << *frame_id << "" << std::endl;
-    if (*frame_id == 749 || *frame_id == 750) {
-      std::cout << "hahahahahaha" << std::endl;
-      std::cout << " 749: " << std::endl;
-      Eroll(749);
-      std::cout << "  750: " << std::endl;
-      Eroll(750);
-    }
-  }
 
   return true;
 }
 
 void LRUKReplacer::RecordAccess(frame_id_t frame_id, [[maybe_unused]] AccessType access_type) {
-  if (frame_id >= 500 && frame_id <= 749) {
-    std::cout << current_timestamp_ << "==IN==RecordAccess"
-              << "---" << frame_id << "  "
-              << "curr_size_:" << curr_size_ << "" << std::endl;
-    if (frame_id == 749 || frame_id == 750) {
-      std::cout << "hahahahahaha" << std::endl;
-      std::cout << " 749: ";
-      Eroll(749);
-      std::cout << "  750: ";
-      Eroll(750);
-    }
-  }
-
   if (frame_id < 0 || frame_id >= static_cast<int>(replacer_size_)) {
     exit(-1);  // 帧的大小 小于0 或者 大于了 替换器大小，无法访问。
   }
@@ -144,11 +116,6 @@ void LRUKReplacer::RecordAccess(frame_id_t frame_id, [[maybe_unused]] AccessType
 }
 
 void LRUKReplacer::SetEvictable(frame_id_t frame_id, bool set_evictable) {
-  if (frame_id >= 500 && frame_id <= 749) {
-    std::cout << current_timestamp_ << "==IN==SetEvictable"
-              << "---" << frame_id << "  "
-              << "set_evictable:" << set_evictable << "  " << std::endl;
-  }
   if (frame_id < 0 || frame_id >= static_cast<int>(replacer_size_)) {
     exit(-1);  // 帧的大小 小于0 或者 大于了 替换器大小，无法访问。
   }
@@ -208,12 +175,6 @@ void LRUKReplacer::SetEvictable(frame_id_t frame_id, bool set_evictable) {
 }
 
 void LRUKReplacer::Remove(frame_id_t frame_id) {
-  if (frame_id >= 500 && frame_id <= 749) {
-    std::cout << current_timestamp_ << "==IN==Remove"
-              << "---" << frame_id << "  "
-              << "curr_size_:" << curr_size_ << "  \n"
-              << std::endl;
-  }
   if (frame_id < 0 || frame_id >= static_cast<int>(replacer_size_)) {
     exit(-1);  // 帧的大小 小于0 或者 大于了 替换器大小，无法访问。
   }
