@@ -10,7 +10,7 @@ class BasicPageGuard {
  public:
   BasicPageGuard() = default;
 
-  BasicPageGuard(BufferPoolManager *bpm, Page *page) : bpm_(bpm), page_(page) {}
+  BasicPageGuard(BufferPoolManager *bpm, Page *page) noexcept : bpm_(bpm), page_(page) {}
 
   BasicPageGuard(const BasicPageGuard &) = delete;
   auto operator=(const BasicPageGuard &) -> BasicPageGuard & = delete;
@@ -90,7 +90,8 @@ class BasicPageGuard {
 class ReadPageGuard {
  public:
   ReadPageGuard() = default;
-  ReadPageGuard(BufferPoolManager *bpm, Page *page) : guard_(bpm, page) {}
+  ReadPageGuard(BufferPoolManager *bpm, Page *page) noexcept : guard_(bpm, page) {}
+
   ReadPageGuard(const ReadPageGuard &) = delete;
   auto operator=(const ReadPageGuard &) -> ReadPageGuard & = delete;
 
@@ -150,7 +151,7 @@ class ReadPageGuard {
 class WritePageGuard {
  public:
   WritePageGuard() = default;
-  WritePageGuard(BufferPoolManager *bpm, Page *page) : guard_(bpm, page) {}
+  WritePageGuard(BufferPoolManager *bpm, Page *page) noexcept : guard_(bpm, page) {}
   WritePageGuard(const WritePageGuard &) = delete;
   auto operator=(const WritePageGuard &) -> WritePageGuard & = delete;
 

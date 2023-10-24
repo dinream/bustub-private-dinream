@@ -74,7 +74,7 @@ auto BufferPoolManager::NewPage(page_id_t *page_id) -> Page * {
   pages_[id].ResetMemory();
   pages_[id].pin_count_++;
   pages_[id].page_id_ = *page_id;
-  // pages_[id].is_dirty_ = true;
+  pages_[id].is_dirty_ = false;
   disk_manager_->ReadPage(*page_id, pages_[id].data_);
   replacer_->RecordAccess(id);
   replacer_->SetEvictable(id, false);
@@ -92,7 +92,7 @@ auto BufferPoolManager::FetchPage(page_id_t page_id, [[maybe_unused]] AccessType
     replacer_->RecordAccess(it->second);
     replacer_->SetEvictable(it->second, false);
     pages_[it->second].pin_count_++;
-    pages_[it->second].is_dirty_ = true;
+    // pages_[it->second].is_dirty_ = true;
     std::cout << "FetchPage id: " << page_id << "  existed frameid: " << it->second << std::endl;
     return &pages_[it->second];
   }
@@ -134,8 +134,13 @@ auto BufferPoolManager::UnpinPage(page_id_t page_id, bool is_dirty, [[maybe_unus
         replacer_->SetEvictable(it->second, true);
       }
     }
+    if (!pages_[it->second].is_dirty_) {
+      // pages_[it->second].WLatch();
+      // disk_manager_->WritePage(pages_[it->second].GetPageId(), pages_[it->second].GetData());
+      // pages_[it->second].WUnlatch();
+      pages_[it->second].is_dirty_ = is_dirty;
+    }
 
-    pages_[it->second].is_dirty_ = is_dirty;
     std::cout << "UnpinPage id: " << page_id << "  frameid: " << it->second << " is dirty:" << is_dirty << std::endl;
     return true;
   }
@@ -202,156 +207,29 @@ auto BufferPoolManager::DeletePage(page_id_t page_id) -> bool {
 auto BufferPoolManager::AllocatePage() -> page_id_t { return next_page_id_++; }
 
 auto BufferPoolManager::FetchPageBasic(page_id_t page_id) -> BasicPageGuard {
-  std::cout << "FetchPageBasic .. id:" << page_id << std::endl;
-  auto it = page_table_.find(page_id);
-  if (it != page_table_.end()) {
-    replacer_->RecordAccess(it->second);
-    replacer_->SetEvictable(it->second, false);
-    pages_[it->second].pin_count_++;
-    pages_[it->second].is_dirty_ = true;
-    std::cout << "FetchPageBasic id: " << page_id << "  existed frameid: " << it->second << std::endl;
-    return {this, &pages_[it->second]};
-  }
-  frame_id_t id;
-  if (!free_list_.empty()) {
-    id = static_cast<int>(*free_list_.begin());
-    free_list_.pop_front();
-
-  } else if (!replacer_->Evict(&id)) {
-    std::cout << "FetchPageBasic error , no Evictable, no Empty list" << std::endl;
-    return {this, nullptr};
-  } else {
-    page_table_.erase(pages_[id].GetPageId());
-    if (pages_[id].IsDirty()) {
-      disk_manager_->WritePage(pages_[id].GetPageId(), pages_[id].GetData());
-    }
-    // DeallocatePage(pages_[id].GetPageId());
-  }
-  pages_[id].ResetMemory();
-  pages_[id].page_id_ = page_id;
-  disk_manager_->ReadPage(page_id, pages_[id].data_);
-  pages_[id].pin_count_++;
-  pages_[id].is_dirty_ = false;
-  replacer_->RecordAccess(id);
-  replacer_->SetEvictable(id, false);
-  page_table_.emplace(std::make_pair(page_id, id));
-  std::cout << "FetchPageBasic  id: " << page_id << " new frameid: " << id << std::endl;
-  return {this, &pages_[id]};
+  Page *page = FetchPage(page_id);
+  return {this, page};
 }
 
 auto BufferPoolManager::FetchPageRead(page_id_t page_id) -> ReadPageGuard {
-  std::cout << "ReadPageGuard .. id:" << page_id << std::endl;
-  auto it = page_table_.find(page_id);
-  if (it != page_table_.end()) {
-    replacer_->RecordAccess(it->second);
-    replacer_->SetEvictable(it->second, false);
-    pages_[it->second].pin_count_++;
-    pages_[it->second].is_dirty_ = true;
-    std::cout << "ReadPageGuard id: " << page_id << "  existed frameid: " << it->second << std::endl;
-    return {this, &pages_[it->second]};
+  Page *page = FetchPage(page_id);
+  if (page != nullptr) {
+    page->RLatch();
   }
-  frame_id_t id;
-  if (!free_list_.empty()) {
-    id = static_cast<int>(*free_list_.begin());
-    free_list_.pop_front();
-
-  } else if (!replacer_->Evict(&id)) {
-    std::cout << "ReadPageGuard error , no Evictable, no Empty list" << std::endl;
-    return {this, nullptr};
-  } else {
-    page_table_.erase(pages_[id].GetPageId());
-    if (pages_[id].IsDirty()) {
-      disk_manager_->WritePage(pages_[id].GetPageId(), pages_[id].GetData());
-    }
-    // DeallocatePage(pages_[id].GetPageId());
-  }
-  pages_[id].ResetMemory();
-  pages_[id].page_id_ = page_id;
-  disk_manager_->ReadPage(page_id, pages_[id].data_);
-  pages_[id].pin_count_++;
-  pages_[id].is_dirty_ = false;
-  replacer_->RecordAccess(id);
-  replacer_->SetEvictable(id, false);
-  page_table_.emplace(std::make_pair(page_id, id));
-  std::cout << "ReadPageGuard  id: " << page_id << " new frameid: " << id << std::endl;
-  return {this, &pages_[id]};
+  return {this, page};
 }
 
 auto BufferPoolManager::FetchPageWrite(page_id_t page_id) -> WritePageGuard {
-  std::cout << "FetchPageWrite .. id:" << page_id << std::endl;
-  auto it = page_table_.find(page_id);
-  if (it != page_table_.end()) {
-    replacer_->RecordAccess(it->second);
-    replacer_->SetEvictable(it->second, false);
-    pages_[it->second].pin_count_++;
-    pages_[it->second].is_dirty_ = true;
-    std::cout << "FetchPageWrite id: " << page_id << "  existed frameid: " << it->second << std::endl;
-    return {this, &pages_[it->second]};
+  Page *page = FetchPage(page_id);
+  if (page != nullptr) {
+    page->WLatch();
   }
-  frame_id_t id;
-  if (!free_list_.empty()) {
-    id = static_cast<int>(*free_list_.begin());
-    free_list_.pop_front();
-
-  } else if (!replacer_->Evict(&id)) {
-    std::cout << "FetchPageWrite error , no Evictable, no Empty list" << std::endl;
-    return {this, nullptr};
-  } else {
-    page_table_.erase(pages_[id].GetPageId());
-    if (pages_[id].IsDirty()) {
-      disk_manager_->WritePage(pages_[id].GetPageId(), pages_[id].GetData());
-    }
-    // DeallocatePage(pages_[id].GetPageId());
-  }
-  pages_[id].ResetMemory();
-  pages_[id].page_id_ = page_id;
-  disk_manager_->ReadPage(page_id, pages_[id].data_);
-  pages_[id].pin_count_++;
-  pages_[id].is_dirty_ = false;
-  replacer_->RecordAccess(id);
-  replacer_->SetEvictable(id, false);
-  page_table_.emplace(std::make_pair(page_id, id));
-  std::cout << "FetchPageWrite  id: " << page_id << " new frameid: " << id << std::endl;
-  return {this, &pages_[id]};
+  return {this, page};
 }
 
 auto BufferPoolManager::NewPageGuarded(page_id_t *page_id) -> BasicPageGuard {
-  std::cout << "NewPageGuarded .." << std::endl;
-  std::lock_guard<std::mutex> lock(latch_);
-  if (replacer_->Size() == 0 && free_list_.empty()) {
-    std::cout << "NewPageGuarded return nullptr no empty" << std::endl;
-    return {this, nullptr};
-  }
-
-  frame_id_t id;
-  if (!free_list_.empty()) {
-    id = static_cast<int>(*free_list_.begin());
-    free_list_.pop_front();
-  } else if (!replacer_->Evict(&id)) {
-    std::cout << "NewPageGuarded return nullptr no Evitable" << std::endl;
-    return {this, nullptr};
-  } else {
-    page_table_.erase(pages_[id].GetPageId());
-    // TOOD(unknown): writeback
-    if (pages_[id].IsDirty()) {
-      disk_manager_->WritePage(pages_[id].GetPageId(), pages_[id].GetData());
-    }
-    // DeallocatePage(pages_[id].GetPageId());
-  }
-  *page_id = AllocatePage();
-
-  // TODO(unknown): 清理page内容；
-  pages_[id].ResetMemory();
-  pages_[id].page_id_ = *page_id;
-  pages_[id].pin_count_++;
-  // pages_[id].is_dirty_ = true;
-  disk_manager_->ReadPage(*page_id, pages_[id].data_);
-  replacer_->RecordAccess(id);
-  replacer_->SetEvictable(id, false);
-  // emplace  不会删除这个页面。
-  page_table_.emplace(std::make_pair(*page_id, id));
-  std::cout << "NewPageGuarded id: " << *page_id << "  frameid: " << id << std::endl;
-  return {this, &pages_[id]};
+  Page *page = NewPage(page_id);
+  return {this, page};
 }
 
 }  // namespace bustub
