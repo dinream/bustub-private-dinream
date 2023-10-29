@@ -58,7 +58,40 @@ class BPlusTreeLeafPage : public BPlusTreePage {
   auto GetNextPageId() const -> page_id_t;
   void SetNextPageId(page_id_t next_page_id);
   auto KeyAt(int index) const -> KeyType;
+  // 下面三个 是新加的
+  void SetKeyAt(int index, const KeyType &key);
 
+  /**
+   *
+   * @param value the value to search for
+   */
+  auto ValueIndex(const ValueType &value) const -> int;
+
+  /**
+   *
+   * @param index the index
+   * @return the value at the index
+   */
+  auto ValueAt(int index) const -> ValueType;
+
+  void InsertIndex(int index, KeyType key, ValueType value);
+
+  /**
+   * 不管 index 到底是不是我的元素->--> index，必定是 search 的结果 并且这个 index 结果必定是需要已经检查过的，，即
+   * 我只负责删除
+   * @param index The index of the key to delete. Index must be non-zero.
+   * @return Key at index
+   */
+  void DeleteIndex(int index);
+
+  /**
+   * @param key The key of the array to search. key must not be exist.
+   * @return Key at index
+   */
+  auto SearchKey(KeyType key, const KeyComparator &comparator, int &idx) const -> bool;
+
+  auto Divid2Other(B_PLUS_TREE_LEAF_PAGE_TYPE &other) -> MappingType;
+  auto Merge2Other(B_PLUS_TREE_LEAF_PAGE_TYPE &other) -> MappingType;
   /**
    * @brief for test only return a string representing all keys in
    * this leaf page formatted as "(key1,key2,key3,...)"
@@ -87,6 +120,6 @@ class BPlusTreeLeafPage : public BPlusTreePage {
  private:
   page_id_t next_page_id_;
   // Flexible array member for page data.
-  MappingType array_[0];
+  MappingType *array_;
 };
 }  // namespace bustub

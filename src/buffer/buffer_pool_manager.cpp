@@ -48,13 +48,14 @@ auto BufferPoolManager::NewPage(page_id_t *page_id) -> Page * {
   // 理解 ：让 缓冲池 多管理一个页面
   std::cout << "NewPage .." << std::endl;
   std::lock_guard<std::mutex> lock(latch_);
+  *page_id = INVALID_PAGE_ID;
   if (replacer_->Size() == 0 && free_list_.empty()) {
     std::cout << "NewPage return nullptr no empty" << std::endl;
     return nullptr;
   }
 
   frame_id_t id;
-  *page_id = AllocatePage();
+
   if (!free_list_.empty()) {
     id = static_cast<int>(*free_list_.begin());
     free_list_.pop_front();
@@ -71,6 +72,7 @@ auto BufferPoolManager::NewPage(page_id_t *page_id) -> Page * {
 
     // DeallocatePage(pages_[id].GetPageId());
   }
+  *page_id = AllocatePage();
   pages_[id].ResetMemory();
   pages_[id].pin_count_++;
   pages_[id].page_id_ = *page_id;

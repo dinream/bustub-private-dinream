@@ -17,27 +17,41 @@ namespace bustub {
  * Helper methods to get/set page type
  * Page type enum class is defined in b_plus_tree_page.h
  */
-auto BPlusTreePage::IsLeafPage() const -> bool { return false; }
-void BPlusTreePage::SetPageType(IndexPageType page_type) {}
+auto BPlusTreePage::IsLeafPage() const -> bool { return page_type_ == IndexPageType::LEAF_PAGE; }
+void BPlusTreePage::SetPageType(IndexPageType page_type) {
+  if (page_type > IndexPageType::INTERNAL_PAGE) {
+    return;
+  }
+  page_type_ = page_type;
+}
 
 /*
  * Helper methods to get/set size (number of key/value pairs stored in that
  * page)
  */
-auto BPlusTreePage::GetSize() const -> int { return 0; }
-void BPlusTreePage::SetSize(int size) {}
-void BPlusTreePage::IncreaseSize(int amount) {}
+auto BPlusTreePage::GetSize() const -> int { return size_; }
+void BPlusTreePage::SetSize(int size) {
+  // 先这样，至于一开始第一个节点，后面考虑
+  // if(size<max_size&&size>max_size/2){
+  //     size_=size;
+  // }
+  size_ = size;
+}
+void BPlusTreePage::IncreaseSize(int amount) {
+  // 增加 最大 还是 当前 size，测试得知
+  size_ += amount;
+}
 
 /*
  * Helper methods to get/set max size (capacity) of the page
  */
-auto BPlusTreePage::GetMaxSize() const -> int { return 0; }
-void BPlusTreePage::SetMaxSize(int size) {}
+auto BPlusTreePage::GetMaxSize() const -> int { return max_size_; }
+void BPlusTreePage::SetMaxSize(int size) { max_size_ = size; }
 
 /*
  * Helper method to get min page size
  * Generally, min page size == max page size / 2
  */
-auto BPlusTreePage::GetMinSize() const -> int { return 0; }
+auto BPlusTreePage::GetMinSize() const -> int { return IsLeafPage() ? max_size_ / 2 : max_size_ / 2 + 1; }
 
 }  // namespace bustub

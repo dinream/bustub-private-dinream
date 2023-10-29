@@ -11,6 +11,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cmath>
 #include <deque>
 #include <iostream>
 #include <optional>
@@ -68,6 +69,8 @@ class BPlusTree {
   explicit BPlusTree(std::string name, page_id_t header_page_id, BufferPoolManager *buffer_pool_manager,
                      const KeyComparator &comparator, int leaf_max_size = LEAF_PAGE_SIZE,
                      int internal_max_size = INTERNAL_PAGE_SIZE);
+
+  auto BiDisSearch(MappingType array[], int len, KeyType key) -> int;
 
   // Returns true if this B+ tree has no keys and values.
   auto IsEmpty() const -> bool;
