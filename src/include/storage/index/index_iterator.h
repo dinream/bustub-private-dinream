@@ -38,12 +38,30 @@ class IndexIterator {
 
   auto operator++() -> IndexIterator &;
 
-  auto operator==(const IndexIterator &itr) const -> bool { throw std::runtime_error("unimplemented"); }
+  auto operator==(const IndexIterator &itr) const -> bool {
+    if (bpm_ || itr.bpm_) {
+      if (bpm_ == itr.bpm_) {
+        return cur_pg_ == itr.cur_pg_ && cur_idx_ == itr.cur_idx_;
+      }
+      return false;
+    }
+    //都是 End();
+    return true;
+  }
 
-  auto operator!=(const IndexIterator &itr) const -> bool { throw std::runtime_error("unimplemented"); }
+  auto operator!=(const IndexIterator &itr) const -> bool {
+    if (bpm_ || itr.bpm_) {
+      if (bpm_ == itr.bpm_) {
+        return !(cur_pg_ == itr.cur_pg_ && cur_idx_ == itr.cur_idx_);
+      }
+      return true;
+    }
+    //都是 End();
+    return false;
+  }
 
  private:
-  ReadPageGuard *cur_pg_;
+  ReadPageGuard *cur_pg_{new ReadPageGuard{nullptr, nullptr}};
   int cur_idx_;
   KeyComparator comparator_;
   BufferPoolManager *bpm_;

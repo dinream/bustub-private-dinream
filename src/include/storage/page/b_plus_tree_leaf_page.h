@@ -92,6 +92,7 @@ class BPlusTreeLeafPage : public BPlusTreePage {
 
   auto Divid2Other(B_PLUS_TREE_LEAF_PAGE_TYPE &other) -> MappingType;
   auto Merge2Other(B_PLUS_TREE_LEAF_PAGE_TYPE &other) -> MappingType;
+  auto PairAt(int idx) const -> const MappingType &;
   /**
    * @brief for test only return a string representing all keys in
    * this leaf page formatted as "(key1,key2,key3,...)"
@@ -120,6 +121,6 @@ class BPlusTreeLeafPage : public BPlusTreePage {
  private:
   page_id_t next_page_id_;
   // Flexible array member for page data.
-  MappingType *array_;
+  MappingType array_[0];
 };
 }  // namespace bustub

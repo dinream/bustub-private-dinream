@@ -17,6 +17,7 @@
 #include "gtest/gtest.h"
 #include "storage/disk/disk_manager_memory.h"
 #include "storage/index/b_plus_tree.h"
+#include "storage/page/b_plus_tree_page.h"
 #include "test_util.h"  // NOLINT
 
 namespace bustub {
@@ -47,11 +48,17 @@ TEST(BPlusTreeTests, DISABLED_InsertTest1) {
   index_key.SetFromInteger(key);
   tree.Insert(index_key, rid, transaction);
 
+  // int64_t keyy = 43;
+  // int64_t valuee = keyy & 0xFFFFFFFF;
+  // rid.Set(static_cast<int32_t>(keyy), valuee);
+  // index_key.SetFromInteger(keyy);
+  // tree.Insert(index_key, rid, transaction);
+
   auto root_page_id = tree.GetRootPageId();
   auto root_page = reinterpret_cast<BPlusTreePage *>(bpm->FetchPage(root_page_id)->GetData());
   ASSERT_NE(root_page, nullptr);
   ASSERT_TRUE(root_page->IsLeafPage());
-
+  tree.Print(bpm);
   auto root_as_leaf = reinterpret_cast<BPlusTreeLeafPage<GenericKey<8>, RID, GenericComparator<8>> *>(root_page);
   ASSERT_EQ(root_as_leaf->GetSize(), 1);
   ASSERT_EQ(comparator(root_as_leaf->KeyAt(0), index_key), 0);
@@ -86,7 +93,7 @@ TEST(BPlusTreeTests, DISABLED_InsertTest2) {
     index_key.SetFromInteger(key);
     tree.Insert(index_key, rid, transaction);
   }
-
+  tree.Print(bpm);
   std::vector<RID> rids;
   for (auto key : keys) {
     rids.clear();

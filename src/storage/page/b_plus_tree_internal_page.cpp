@@ -65,20 +65,25 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::InsertIndex(int index, KeyType key, ValueTy
   if (index < 0 || index > GetSize()) {
     return;  // index 越界
   }
-  SetSize(GetSize() + 1);  // 最大大小减一
-  auto array = new MappingType[GetSize()];
-  for (int i = 0; i < index; i++) {
-    array[i].first = array_[i].first;
-    array[i].second = array_[i].second;
+  // SetSize(GetSize() + 1);  // 最大大小减一
+  // auto array = new MappingType[GetSize()];
+  // for (int i = 0; i < index; i++) {
+  //   array[i].first = array_[i].first;
+  //   array[i].second = array_[i].second;
+  // }
+  // array[index].first = key;
+  // array[index].second = value;
+  // for (int i = index + 1; i < GetSize(); i++) {
+  //   array[i].first = array_[i - 1].first;
+  //   array[i].second = array_[i - 1].second;
+  // }
+  // array_ = array;
+  // delete[] array_;
+  for (int i = GetSize(); i > index; i--) {
+    array_[i] = array_[i - 1];
   }
-  array[index].first = key;
-  array[index].second = value;
-  for (int i = index + 1; i < GetSize(); i++) {
-    array[i].first = array_[i - 1].first;
-    array[i].second = array_[i - 1].second;
-  }
-  array_ = array;
-  delete[] array_;
+  SetSize(GetSize() + 1);  // 最大大小+一
+  array_[index] = std::make_pair(key, value);
 }
 
 INDEX_TEMPLATE_ARGUMENTS
@@ -86,18 +91,22 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::DeleteIndex(int index) {
   if (index < 0 || index > GetSize() - 1) {
     return;  // index 越界
   }
-  SetSize(GetSize() - 1);  // 最大大小减一
-  auto array = new MappingType[GetSize()];
-  for (int i = 0; i < index; i++) {
-    array[i].first = array_[i].first;
-    array[i].second = array_[i].second;
+  // SetSize(GetSize() - 1);  // 最大大小减一
+  // auto array = new MappingType[GetSize()];
+  // for (int i = 0; i < index; i++) {
+  //   array[i].first = array_[i].first;
+  //   array[i].second = array_[i].second;
+  // }
+  // for (int i = index; i < GetSize(); i++) {
+  //   array[i].first = array_[i + 1].first;
+  //   array[i].second = array_[i + 1].second;
+  // }
+  // delete[] array_;
+  // array_ = array;
+  for (int i = index; i < GetSize() - 1; i++) {
+    array_[i] = array_[i + 1];
   }
-  for (int i = index; i < GetSize(); i++) {
-    array[i].first = array_[i + 1].first;
-    array[i].second = array_[i + 1].second;
-  }
-  delete[] array_;
-  array_ = array;
+  SetSize(GetSize() - 1);
 }
 INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::SearchKey(KeyType key, const KeyComparator &comparator, int &idx) const -> bool {
@@ -125,7 +134,7 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::Divid2Other(B_PLUS_TREE_INTERNAL_PAGE_TYPE 
   int n = GetSize() / 2;
   for (int i = n; i <= GetMaxSize(); i++) {
     other.InsertIndex(j++, KeyAt(n), ValueAt(n));
-    DeleteIndex(i);
+    DeleteIndex(n);
   }
   return {other.KeyAt(0), other.ValueAt(0)};
 }
