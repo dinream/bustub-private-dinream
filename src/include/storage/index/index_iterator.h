@@ -45,7 +45,7 @@ class IndexIterator {
       }
       return false;
     }
-    //都是 End();
+    // 都是 End();
     return true;
   }
 
@@ -56,7 +56,7 @@ class IndexIterator {
       }
       return true;
     }
-    //都是 End();
+    // 都是 End();
     return false;
   }
 
