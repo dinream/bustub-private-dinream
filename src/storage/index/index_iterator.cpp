@@ -46,6 +46,9 @@ auto INDEXITERATOR_TYPE::operator*() -> const MappingType & {
 INDEX_TEMPLATE_ARGUMENTS
 auto INDEXITERATOR_TYPE::operator++() -> INDEXITERATOR_TYPE & {
   // throw std::runtime_error("unimplemented");
+  if(IsEnd()){
+    return *this;
+  }
   cur_idx_++;
   auto cur_page = cur_pg_->As<LeafPage>();
   if (cur_idx_ >= cur_page->GetSize()) {
