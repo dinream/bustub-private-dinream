@@ -63,12 +63,13 @@ TEST(BPlusTreeTests, DISABLED_ScaleTest) {  // NOLINT
     tree.Insert(index_key, rid, transaction);
   }
   std::vector<RID> rids;
+  int i = 0;
   for (auto key : keys) {
     rids.clear();
     index_key.SetFromInteger(key);
     tree.GetValue(index_key, &rids);
     ASSERT_EQ(rids.size(), 1);
-
+    std::cout << i++ << std::endl;
     int64_t value = key & 0xFFFFFFFF;
     ASSERT_EQ(rids[0].GetSlotNum(), value);
   }

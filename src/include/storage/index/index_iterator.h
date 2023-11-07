@@ -28,7 +28,7 @@ class IndexIterator {
  public:
   // you may define your own constructor based on your member variables
   // IndexIterator();
-  explicit IndexIterator(ReadPageGuard *cur_pg, int cur_idx, const KeyComparator &comparator, BufferPoolManager *bpm,
+  explicit IndexIterator(ReadPageGuard &cur_pg, int cur_idx, const KeyComparator &comparator, BufferPoolManager *bpm,
                          INDEXITERATOR_TYPE *end_iterator);
   ~IndexIterator();  // NOLINT
 
@@ -41,7 +41,7 @@ class IndexIterator {
   auto operator==(const IndexIterator &itr) const -> bool {
     if (bpm_ || itr.bpm_) {
       if (bpm_ == itr.bpm_) {
-        return cur_pg_ == itr.cur_pg_ && cur_idx_ == itr.cur_idx_;
+        return cur_pg_.PageId() == itr.cur_pg_.PageId() && cur_idx_ == itr.cur_idx_;
       }
       return false;
     }
@@ -52,7 +52,7 @@ class IndexIterator {
   auto operator!=(const IndexIterator &itr) const -> bool {
     if (bpm_ || itr.bpm_) {
       if (bpm_ == itr.bpm_) {
-        return !(cur_pg_ == itr.cur_pg_ && cur_idx_ == itr.cur_idx_);
+        return !(cur_pg_.PageId() == itr.cur_pg_.PageId() && cur_idx_ == itr.cur_idx_);
       }
       return true;
     }
@@ -61,7 +61,7 @@ class IndexIterator {
   }
 
  private:
-  ReadPageGuard *cur_pg_{new ReadPageGuard{nullptr, nullptr}};
+  ReadPageGuard cur_pg_{ReadPageGuard{nullptr, nullptr}};
   int cur_idx_;
   KeyComparator comparator_;
   BufferPoolManager *bpm_;

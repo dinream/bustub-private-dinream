@@ -61,28 +61,19 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::ValueAt(int index) const -> ValueType {
   return val;
 }
 INDEX_TEMPLATE_ARGUMENTS
+void B_PLUS_TREE_INTERNAL_PAGE_TYPE::SetValueAt(int index, const ValueType &value) {
+  // if(index > =size_)return ;
+  array_[index].second = value;
+}
+INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_INTERNAL_PAGE_TYPE::InsertIndex(int index, KeyType key, ValueType value) {
   if (index < 0 || index > GetSize()) {
     return;  // index 越界
   }
-  // SetSize(GetSize() + 1);  // 最大大小减一
-  // auto array = new MappingType[GetSize()];
-  // for (int i = 0; i < index; i++) {
-  //   array[i].first = array_[i].first;
-  //   array[i].second = array_[i].second;
-  // }
-  // array[index].first = key;
-  // array[index].second = value;
-  // for (int i = index + 1; i < GetSize(); i++) {
-  //   array[i].first = array_[i - 1].first;
-  //   array[i].second = array_[i - 1].second;
-  // }
-  // array_ = array;
-  // delete[] array_;
-  for (int i = GetSize(); i > index; i--) {
+  SetSize(GetSize() + 1);  // 最大大小+一
+  for (int i = GetSize() - 1; i > index; i--) {
     array_[i] = array_[i - 1];
   }
-  SetSize(GetSize() + 1);  // 最大大小+一
   array_[index] = std::make_pair(key, value);
 }
 
@@ -91,18 +82,6 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::DeleteIndex(int index) {
   if (index < 0 || index > GetSize() - 1) {
     return;  // index 越界
   }
-  // SetSize(GetSize() - 1);  // 最大大小减一
-  // auto array = new MappingType[GetSize()];
-  // for (int i = 0; i < index; i++) {
-  //   array[i].first = array_[i].first;
-  //   array[i].second = array_[i].second;
-  // }
-  // for (int i = index; i < GetSize(); i++) {
-  //   array[i].first = array_[i + 1].first;
-  //   array[i].second = array_[i + 1].second;
-  // }
-  // delete[] array_;
-  // array_ = array;
   for (int i = index; i < GetSize() - 1; i++) {
     array_[i] = array_[i + 1];
   }
@@ -129,13 +108,17 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::SearchKey(KeyType key, const KeyComparator 
 }
 INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::Divid2Other(B_PLUS_TREE_INTERNAL_PAGE_TYPE &other) -> MappingType {
-  other.Init(GetMaxSize());
   int j = 0;
   int n = GetSize() / 2;
+  other.SetSize(GetSize() - n);
   for (int i = n; i <= GetMaxSize(); i++) {
-    other.InsertIndex(j++, KeyAt(n), ValueAt(n));
-    DeleteIndex(n);
+    // other.InsertIndex(j++, KeyAt(n), ValueAt(n));
+    other.SetKeyAt(j, KeyAt(i));
+    other.SetValueAt(j, ValueAt(i));
+    // DeleteIndex(n);
+    j++;
   }
+  SetSize(n);
   return {other.KeyAt(0), other.ValueAt(0)};
 }
 INDEX_TEMPLATE_ARGUMENTS
@@ -143,10 +126,17 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::Merge2Other(B_PLUS_TREE_INTERNAL_PAGE_TYPE 
   // 大的合并到小的身上， other 为 小
   int j = other.GetSize();
   int n = GetSize();
+  // for (int i = 0; i < n; i++) {
+  //   other.InsertIndex(j++, KeyAt(0), ValueAt(0));
+  //   DeleteIndex(0);
+  // }
+  other.SetSize(GetSize() + other.GetSize());
   for (int i = 0; i < n; i++) {
-    other.InsertIndex(j++, KeyAt(0), ValueAt(0));
-    DeleteIndex(0);
+    other.SetKeyAt(j, KeyAt(i));
+    other.SetValueAt(j, ValueAt(i));
+    j++;
   }
+  SetSize(0);
   return {other.KeyAt(0), other.ValueAt(0)};
 }
 // valuetype for internalNode should be page id_t

@@ -73,7 +73,7 @@ class BPlusTreeLeafPage : public BPlusTreePage {
    * @return the value at the index
    */
   auto ValueAt(int index) const -> ValueType;
-
+  void SetValueAt(int index, const ValueType &value);
   void InsertIndex(int index, KeyType key, ValueType value);
 
   /**
@@ -93,6 +93,7 @@ class BPlusTreeLeafPage : public BPlusTreePage {
   auto Divid2Other(B_PLUS_TREE_LEAF_PAGE_TYPE &other) -> MappingType;
   auto Merge2Other(B_PLUS_TREE_LEAF_PAGE_TYPE &other) -> MappingType;
   auto PairAt(int idx) const -> const MappingType &;
+
   /**
    * @brief for test only return a string representing all keys in
    * this leaf page formatted as "(key1,key2,key3,...)"

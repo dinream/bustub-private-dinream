@@ -4,6 +4,7 @@
 #include <cassert>
 #include <utility>
 
+#include "argparse/argparse.hpp"
 #include "common/config.h"
 #include "storage/index/index_iterator.h"
 #include "storage/page/hash_table_page_defs.h"
@@ -18,14 +19,14 @@ namespace bustub {
  */
 
 INDEX_TEMPLATE_ARGUMENTS
-INDEXITERATOR_TYPE::IndexIterator(ReadPageGuard *cur_pg, int cur_idx, const KeyComparator &comparator,
+INDEXITERATOR_TYPE::IndexIterator(ReadPageGuard &cur_pg, int cur_idx, const KeyComparator &comparator,
                                   BufferPoolManager *bpm, INDEXITERATOR_TYPE *end_iterator)
     : cur_idx_(cur_idx), comparator_(comparator), bpm_(bpm), end_iterator_(end_iterator) {
-  *cur_pg_ = std::move(*cur_pg);
+  cur_pg_ = std::move(cur_pg);
 }
 
 INDEX_TEMPLATE_ARGUMENTS
-INDEXITERATOR_TYPE::~IndexIterator() = default;  // NOLINT
+INDEXITERATOR_TYPE::~IndexIterator() = default;
 
 INDEX_TEMPLATE_ARGUMENTS
 auto INDEXITERATOR_TYPE::IsEnd() -> bool {
@@ -36,7 +37,7 @@ auto INDEXITERATOR_TYPE::IsEnd() -> bool {
 INDEX_TEMPLATE_ARGUMENTS
 auto INDEXITERATOR_TYPE::operator*() -> const MappingType & {
   // throw std::runtime_error("unimplemented");
-  auto cur_page = cur_pg_->As<LeafPage>();
+  auto cur_page = cur_pg_.As<LeafPage>();
   //   MappingType mp = std::make_pair(cur_page->KeyAt(cur_idx_), cur_page->ValueAt(cur_idx_));
   //   return std::move(mp);
   // return *std::make_shared<const MappingType>(cur_page->KeyAt(cur_idx_), cur_page->ValueAt(cur_idx_));
@@ -46,18 +47,18 @@ auto INDEXITERATOR_TYPE::operator*() -> const MappingType & {
 INDEX_TEMPLATE_ARGUMENTS
 auto INDEXITERATOR_TYPE::operator++() -> INDEXITERATOR_TYPE & {
   // throw std::runtime_error("unimplemented");
-  if(IsEnd()){
+  if (IsEnd()) {
     return *this;
   }
   cur_idx_++;
-  auto cur_page = cur_pg_->As<LeafPage>();
+  auto cur_page = cur_pg_.As<LeafPage>();
   if (cur_idx_ >= cur_page->GetSize()) {
     page_id_t cur_id = cur_page->GetNextPageId();
     if (cur_id == INVALID_PAGE_ID) {
       bpm_ = nullptr;
     } else {
       auto new_pg = bpm_->FetchPageRead(cur_id);
-      *cur_pg_ = std::move(new_pg);
+      cur_pg_ = std::move(new_pg);
     }
     cur_idx_ = 0;
   }

@@ -72,6 +72,7 @@ class BPlusTreeInternalPage : public BPlusTreePage {
    * @return the value at the index
    */
   auto ValueAt(int index) const -> ValueType;
+  void SetValueAt(int index, const ValueType &value);
 
   /**
    * @param index The index of the key to insert. Index must be non-zero.
