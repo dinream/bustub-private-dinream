@@ -54,7 +54,10 @@ auto BPLUSTREE_TYPE::IsEmpty() const -> bool {
   auto root_page = root_guard.As<BPlusTreePage>();
   // auto root_page = rg.As<BPlusTreeInternalPage >();
   // InternalPage *root_page = reinterpret_cast<BPlusTreePage>(rg);
-  return root_page == nullptr || root_page->GetSize() == 0;
+  if (root_page == nullptr) {
+    return true;
+  }
+  return root_page->GetSize() == 0;
 }
 
 /*****************************************************************************
@@ -67,7 +70,7 @@ auto BPLUSTREE_TYPE::IsEmpty() const -> bool {
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result, Transaction *txn) -> bool {
-  std::cout << "GetValue " << key << std::endl;
+  std::cout << std::this_thread::get_id() << "GetValue " << key << std::endl;
   // Declaration of context instance.
   // 这个使用方式待考究
   // Context ctx;
@@ -116,7 +119,7 @@ auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transaction *txn) -> bool {
-  std::cout << "Insert " << key << std::endl;
+  // std::cout << std::this_thread::get_id() << "Insert " << key << std::endl;
   // Declaration of context instance.
   // 从头 header_page_id_ 开始 遍历 ，找叶子节点，然后插入
   // 进行比较-》 叶子节点插
@@ -136,7 +139,7 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
   ctx.root_page_id_ = header_page->root_page_id_;
   if (ctx.root_page_id_ == INVALID_PAGE_ID) {  // 此时 B+ tree  为空
     page_id_t page_id = INVALID_PAGE_ID;
-    { bpm_->NewPageGuarded(&page_id); }
+    auto gu = bpm_->NewPageGuarded(&page_id);
     if (page_id == INVALID_PAGE_ID) {
       return false;  // 没有空闲页面了,返回false
     }
@@ -154,9 +157,9 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
     return false;
   }
   ctx.write_set_.emplace_back(std::move(cur_page_guard));
-  auto cur_page = ctx.write_set_.rbegin()->template AsMut<BPlusTreePage>();
+  auto cur_page = ctx.write_set_.rbegin()->template As<BPlusTreePage>();
   while (!cur_page->IsLeafPage()) {
-    auto inner_page = ctx.write_set_.rbegin()->AsMut<InternalPage>();  // 太 ！ 对 ！ 啦 ！
+    auto inner_page = ctx.write_set_.rbegin()->As<InternalPage>();  // 太 ！ 对 ！ 啦 ！
     // InternalPage* inner_page= reinterpret_cast<InternalPage *>(page); // 虽然这个可以转化， 但是我觉得用整个page
     // 转换不太对，应该用page的date来转换
 
@@ -172,7 +175,7 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
     inner_page->SearchKey(key, comparator_, idx);
     page_id_t cur_id = inner_page->ValueAt(idx);
     cur_page_guard = bpm_->FetchPageWrite(cur_id);  // 拿到孩子的写锁
-    cur_page = cur_page_guard.AsMut<BPlusTreePage>();
+    cur_page = cur_page_guard.As<BPlusTreePage>();
     if (cur_page_guard.PageId() == INVALID_PAGE_ID) {
       // 如果 fetch page 失败,
       return false;
@@ -188,7 +191,7 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
   MappingType mp;
   page_id_t page_id = INVALID_PAGE_ID;
   if (leaf_page->GetSize() > leaf_page->GetMaxSize() - 1) {
-    { bpm_->NewPageGuarded(&page_id); }
+    auto gu = bpm_->NewPageGuarded(&page_id);
     if (page_id == INVALID_PAGE_ID) {
       leaf_page->DeleteIndex(idx);
       return false;  // 没有空闲页面了,返回false，暂时忽略
@@ -213,7 +216,7 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
     inner_page->InsertIndex(idx + 1, mmp.first, mmp.second);
     if (inner_page->GetSize() > inner_page->GetMaxSize()) {
       page_id = INVALID_PAGE_ID;
-      { bpm_->NewPageGuarded(&page_id); }
+      auto gu = bpm_->NewPageGuarded(&page_id);
       if (page_id == INVALID_PAGE_ID) {
         inner_page->DeleteIndex(idx);  // TODO(unknown): 这里的修复需要递归
         return false;                  // 没有空闲页面了,返回false，暂时忽略
@@ -238,7 +241,8 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
   }
   auto page_guard = bpm_->FetchPageWrite(page_idd);
   auto root_inner_page = page_guard.AsMut<InternalPage>();
-  auto root_page = bpm_->FetchPageWrite(ctx.root_page_id_).AsMut<InternalPage>();
+  auto root_pg = bpm_->FetchPageWrite(ctx.root_page_id_);
+  auto root_page = root_pg.AsMut<InternalPage>();
   root_inner_page->Init(internal_max_size_);
   root_inner_page->InsertIndex(0, root_page->KeyAt(0), ctx.root_page_id_);
   root_inner_page->InsertIndex(1, mmp.first, page_id);  // 新分裂出来的，id
@@ -259,7 +263,7 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
  */
 INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *txn) {
-  std::cout << "Remove " << key << std::endl;
+  // std::cout << std::this_thread::get_id() << "Remove " << key << std::endl;
   // Declaration of context instance.
   // 空树 立即返回。。
 
@@ -290,9 +294,9 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *txn) {
   }
   page_id_t cur_id = ctx.root_page_id_;
   ctx.write_set_.emplace_back(std::move(root_page_guard));  // 先把root 送进去
-  auto cur_page = ctx.write_set_.rbegin()->template AsMut<BPlusTreePage>();
+  auto cur_page = ctx.write_set_.rbegin()->template As<BPlusTreePage>();
   while (!cur_page->IsLeafPage()) {
-    auto inner_page = ctx.write_set_.rbegin()->AsMut<InternalPage>();  // 太 ！ 对 ！ 啦 ！
+    auto inner_page = ctx.write_set_.rbegin()->As<InternalPage>();  // 太 ！ 对 ！ 啦 ！
     // InternalPage* inner_page= reinterpret_cast<InternalPage *>(page); // 虽然这个可以转化， 但是我觉得用整个page
     // 转换不太对，应该用page的date来转换
     if (inner_page->GetSize() > inner_page->GetMinSize() && inner_page->GetSize() > 2) {
@@ -308,7 +312,7 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *txn) {
     cur_id = inner_page->ValueAt(idx);
     auto cur_page_guard = bpm_->FetchPageWrite(cur_id);
 
-    cur_page = cur_page_guard.AsMut<BPlusTreePage>();
+    cur_page = cur_page_guard.As<BPlusTreePage>();
     if (cur_page_guard.PageId() == INVALID_PAGE_ID) {
       // 如果 fetch page 失败,
       return;
@@ -346,7 +350,8 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *txn) {
     if (idx < fa_page->GetSize() - 1) {  // 当前有右兄弟
       // 找右兄弟借
       page_id = leaf_page->GetNextPageId();
-      auto bro_page = bpm_->FetchPageWrite(page_id).AsMut<LeafPage>();
+      auto pg = bpm_->FetchPageWrite(page_id);
+      auto bro_page = pg.AsMut<LeafPage>();
       if (bro_page->GetSize() > bro_page->GetMinSize()) {
         leaf_page->InsertIndex(leaf_page->GetSize(), bro_page->KeyAt(0), bro_page->ValueAt(0));
         bro_page->DeleteIndex(0);
@@ -364,7 +369,7 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *txn) {
       leaf_page = leaf_page_guard.AsMut<LeafPage>();
       // ctx.write_set_.emplace_back(bpm_->FetchPageWrite(id)); 这里 这个 叶子不需要进去
       if (bro_page->GetSize() > bro_page->GetMinSize()) {
-        leaf_page->InsertIndex(0, bro_page->KeyAt(bro_page->GetSize() - 1), bro_page->ValueAt(bro_page->GetSize()));
+        leaf_page->InsertIndex(0, bro_page->KeyAt(bro_page->GetSize() - 1), bro_page->ValueAt(bro_page->GetSize() - 1));
         bro_page->DeleteIndex(bro_page->GetSize() - 1);
         fa_page->SetKeyAt(idx, leaf_page->KeyAt(0));
         ok = true;
@@ -427,7 +432,8 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *txn) {
       if (idx < fa_page->GetSize() - 1) {  // 当前有右兄弟
         // 找右兄弟借
         page_id = fa_page->ValueAt(idx + 1);
-        auto bro_page = bpm_->FetchPageWrite(page_id).AsMut<InternalPage>();
+        auto pg = bpm_->FetchPageWrite(page_id);
+        auto bro_page = pg.AsMut<InternalPage>();
         if (bro_page->GetSize() > internal_max_size_ / 2 + 1 && bro_page->GetSize() > 2) {
           cur_pagee->InsertIndex(cur_pagee->GetSize(), bro_page->KeyAt(0), bro_page->ValueAt(0));
           bro_page->DeleteIndex(0);
@@ -437,9 +443,11 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *txn) {
       }
       if (!ok && idx > 0) {  // 当前有左兄弟
         page_id = fa_page->ValueAt(idx - 1);
-        auto bro_page = bpm_->FetchPageWrite(page_id).AsMut<InternalPage>();
+        auto pg = bpm_->FetchPageWrite(page_id);
+        auto bro_page = pg.AsMut<InternalPage>();
         if (bro_page->GetSize() > internal_max_size_ / 2 + 1 && bro_page->GetSize() > 2) {
-          cur_pagee->InsertIndex(0, bro_page->KeyAt(bro_page->GetSize() - 1), bro_page->ValueAt(bro_page->GetSize()));
+          cur_pagee->InsertIndex(0, bro_page->KeyAt(bro_page->GetSize() - 1),
+                                 bro_page->ValueAt(bro_page->GetSize() - 1));
           bro_page->DeleteIndex(bro_page->GetSize() - 1);
           fa_page->SetKeyAt(idx, cur_pagee->KeyAt(0));
           ok = true;
@@ -490,7 +498,7 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *txn) {
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::Begin() -> INDEXITERATOR_TYPE {
-  std::cout << "Begin " << std::endl;
+  // std::cout << "Begin " << std::endl;
   // 最左面的叶子 构造索引 迭代器
   // 向左 递归  -> 直到 -> is leaf
   if (header_page_id_ == INVALID_PAGE_ID) {
@@ -533,7 +541,7 @@ auto BPLUSTREE_TYPE::Begin() -> INDEXITERATOR_TYPE {
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::Begin(const KeyType &key) -> INDEXITERATOR_TYPE {
-  std::cout << "Begin " << key << std::endl;
+  // std::cout << "Begin " << key << std::endl;
   // 从 key 开始的 叶子 迭代器 。
   // GetValue 类似。
   if (header_page_id_ == INVALID_PAGE_ID) {

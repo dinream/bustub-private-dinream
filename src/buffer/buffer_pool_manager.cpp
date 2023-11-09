@@ -32,6 +32,7 @@ BufferPoolManager::BufferPoolManager(size_t pool_size, DiskManager *disk_manager
   //     "exception line in `buffer_pool_manager.cpp`.");
 
   // we allocate a consecutive memory space for the buffer pool
+  std::cout << "pool_size" << pool_size << "  replacer_k" << replacer_k << std::endl;
   pages_ = new Page[pool_size_];
   replacer_ = std::make_unique<LRUKReplacer>(pool_size, replacer_k);
 
@@ -194,6 +195,10 @@ auto BufferPoolManager::FetchPageRead(page_id_t page_id) -> ReadPageGuard {
 }
 
 auto BufferPoolManager::FetchPageWrite(page_id_t page_id) -> WritePageGuard {
+  // if (page_id < 0) {
+  //   std::cout << "卧槽"
+  //             << " 真有你的" << std::endl;
+  // }
   Page *page = FetchPage(page_id);
   if (page != nullptr) {
     page->WLatch();

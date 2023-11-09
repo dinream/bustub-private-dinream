@@ -128,7 +128,7 @@ auto B_PLUS_TREE_LEAF_PAGE_TYPE::SearchKey(KeyType key, const KeyComparator &com
 INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_LEAF_PAGE_TYPE::Divid2Other(B_PLUS_TREE_LEAF_PAGE_TYPE &other) -> MappingType {
   int j = 0;
-  int n = GetSize() / 2;
+  int n = (GetSize() + 1) / 2;
   other.SetSize(GetSize() - n);
   for (int i = n; i <= GetMaxSize() - 1; i++) {
     // other.InsertIndex(j++, KeyAt(n), ValueAt(n));

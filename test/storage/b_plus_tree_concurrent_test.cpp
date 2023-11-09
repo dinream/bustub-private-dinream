@@ -402,4 +402,80 @@ TEST(BPlusTreeConcurrentTest, DISABLED_MixTest2) {
   delete bpm;
 }
 
+TEST(BPlusTreeConcurrentTest, DISABLED_MixTest3) {
+  // create KeyComparator and index schema
+  auto key_schema = ParseCreateStatement("a bigint");
+  GenericComparator<8> comparator(key_schema.get());
+
+  auto disk_manager = std::make_unique<DiskManagerUnlimitedMemory>();
+  auto *bpm = new BufferPoolManager(50, disk_manager.get(), 10);
+
+  // create and fetch header_page
+  page_id_t page_id;
+  auto *header_page = bpm->NewPage(&page_id);
+  (void)header_page;
+
+  // create b+ tree
+  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", page_id, bpm, comparator, 3, 5);
+
+  // Add perserved_keys
+  std::vector<int64_t> perserved_keys;
+  std::vector<int64_t> dynamic_keys;
+  std::vector<int64_t> all_keys;
+  int64_t total_keys = 999;
+  int64_t sieve = 2;
+  int64_t keykk = total_keys;
+  for (int64_t i = 1; i <= total_keys; i++) {
+    all_keys.push_back(i);
+    if (i % sieve == 0 && i <= keykk) {
+      perserved_keys.push_back(i);
+    } else if (i % sieve != 0 && i <= keykk) {
+      dynamic_keys.push_back(i);
+    }
+  }
+  InsertHelper(&tree, dynamic_keys, 1);
+  // Check there are 1000 keys in there
+  size_t size;
+
+  auto insert_task = [&](int tid) { InsertHelper(&tree, all_keys, tid); };
+  auto insert_task1 = [&](int tid) { InsertHelper(&tree, perserved_keys, tid); };
+  auto delete_task1 = [&](int tid) { DeleteHelper(&tree, dynamic_keys, tid); };
+  // auto lookup_task = [&](int tid) { LookupHelper(&tree, perserved_keys, tid); };
+
+  std::vector<std::thread> threads;
+  std::vector<std::function<void(int)>> tasks;
+  // tasks.emplace_back(insert_task);
+  tasks.emplace_back(insert_task1);
+  tasks.emplace_back(delete_task1);
+  // tasks.emplace_back(lookup_task);
+  std::thread a{insert_task, 99};
+  a.join();
+
+  size_t num_threads = 5;
+  for (size_t i = 0; i < num_threads; i++) {
+    threads.emplace_back(std::thread{tasks[0], i});
+  }
+  for (size_t i = 0; i < num_threads; i++) {
+    threads.emplace_back(std::thread{tasks[1], i + 10});
+  }
+
+  for (size_t i = 0; i < num_threads; i++) {
+    threads[i].join();
+  }
+  std::cout << tree.DrawBPlusTree();
+  // Check all reserved keys exist
+  size = 0;
+
+  for (auto iter = tree.Begin(); iter != tree.End(); ++iter) {
+    const auto &pair = *iter;
+    if ((pair.first).ToString() % sieve == 0) {
+      size++;
+    }
+  }
+
+  ASSERT_EQ(size, perserved_keys.size());
+
+  bpm->UnpinPage(HEADER_PAGE_ID, true);
+  delete bpm;
+}
 }  // namespace bustub
