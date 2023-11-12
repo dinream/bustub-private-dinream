@@ -1,3 +1,4 @@
+
 #include <algorithm>
 #include <cstdio>
 #include <random>
@@ -40,6 +41,7 @@ void InsertHelper(BPlusTree<GenericKey<8>, RID, GenericComparator<8>> *tree, con
     int64_t value = key & 0xFFFFFFFF;
     rid.Set(static_cast<int32_t>(key >> 32), value);
     index_key.SetFromInteger(key);
+    // std::cout << tree->DrawBPlusTree() << std::endl;
     tree->Insert(index_key, rid, transaction);
   }
   delete transaction;
@@ -70,6 +72,11 @@ void DeleteHelper(BPlusTree<GenericKey<8>, RID, GenericComparator<8>> *tree, con
   // create transaction
   auto *transaction = new Transaction(0);
   for (auto key : remove_keys) {
+    // int64_t value = key & 0xFFFFFFFF;
+    // if (value % 5 == 0) {
+    //   std::cout << "hah" << std::endl;
+    // }
+    // std::cout << tree->DrawBPlusTree() << std::endl;
     index_key.SetFromInteger(key);
     tree->Remove(index_key, transaction);
   }
@@ -123,12 +130,12 @@ TEST(BPlusTreeConcurrentTest, MyMixTest) {
   (void)header_page;
 
   // create b+ tree
-  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", page_id, bpm, comparator, 3, 3);
+  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", page_id, bpm, comparator);
 
   // Add perserved_keys
   std::vector<int64_t> perserved_keys;
   std::vector<int64_t> dynamic_keys;
-  int64_t total_keys = 5000;
+  int64_t total_keys = 20000;
   int64_t sieve = 5;
   for (int64_t i = 1; i <= total_keys; i++) {
     if (i % sieve == 0) {
@@ -142,20 +149,70 @@ TEST(BPlusTreeConcurrentTest, MyMixTest) {
   std::shuffle(perserved_keys.begin(), perserved_keys.end(), g);
   std::shuffle(dynamic_keys.begin(), dynamic_keys.end(), g);
   InsertHelper(&tree, perserved_keys, 1);
-  // Check there are 1000 keys in there
-  size_t size;
 
+  // InsertHelper(&tree, dynamic_keys, 1);
+  // LookupHelper(&tree, perserved_keys, 1);
+  // DeleteHelper(&tree, dynamic_keys, 1);
+  // InsertHelper(&tree, perserved_keys, 1);
+  // InsertHelper(&tree, dynamic_keys, 1);
+  // LookupHelper(&tree, perserved_keys, 1);
+  // DeleteHelper(&tree, dynamic_keys, 1);
+  // LookupHelper(&tree, perserved_keys, 1);
+
+  // Check there are 1000 keys in there
+  size_t size = 0;
+  for (auto iter = tree.Begin(); iter != tree.End(); ++iter) {
+    const auto &pair = *iter;
+    if ((pair.first).ToString() % sieve == 0) {
+      size++;
+    }
+  }
+
+  ASSERT_EQ(size, perserved_keys.size());
   auto insert_task = [&](int tid) { InsertHelper(&tree, dynamic_keys, tid); };
   auto delete_task = [&](int tid) { DeleteHelper(&tree, dynamic_keys, tid); };
   auto lookup_task = [&](int tid) { LookupHelper(&tree, perserved_keys, tid); };
-
+  auto iterate_task = [&](int tid) {
+    for (int i = 0; i < 10; ++i) {
+      int start_key = perserved_keys[i];
+      GenericKey<8> start_key_generic;
+      start_key_generic.SetFromInteger(start_key);
+      size_t size_inernal = i;
+      for (auto iter = tree.Begin(start_key_generic); iter != tree.End(); ++iter) {
+        const auto &pair = *iter;
+        if ((pair.first).ToString() % sieve == 0) {
+          // EXPECT_EQ((pair.first).ToString(), perserved_keys[size_inernal]);
+          size_inernal++;
+        }
+      }
+    }
+  };
+  (void)iterate_task;
+  // std::thread thread1{delete_task, 1};
+  // std::thread thread2{delete_task, 2};
+  // std::thread thread3{insert_task, 3};
+  // std::thread thread4{insert_task, 4};
+  // std::thread thread8{delete_task, 1};
+  // std::thread thread5{delete_task, 2};
+  // std::thread thread6{insert_task, 3};
+  // std::thread thread7{insert_task, 4};
+  // thread1.join();
+  // thread2.join();
+  // thread3.join();
+  // thread4.join();
+  // thread5.join();
+  // thread6.join();
+  // thread8.join();
+  // thread7.join();
+  // LookupHelper(&tree, perserved_keys, 11);
   std::vector<std::thread> threads;
   std::vector<std::function<void(int)>> tasks;
   tasks.emplace_back(insert_task);
   tasks.emplace_back(delete_task);
   tasks.emplace_back(lookup_task);
+  tasks.emplace_back(iterate_task);
 
-  size_t num_threads = 8;
+  size_t num_threads = 16;
   for (size_t i = 0; i < num_threads; i++) {
     threads.emplace_back(tasks[i % tasks.size()], i);
   }
@@ -198,7 +255,7 @@ TEST(BPlusTreeConcurrentTest, MyMixTestIterator) {
   // Add perserved_keys
   std::vector<int64_t> perserved_keys;
   std::vector<int64_t> dynamic_keys;
-  int64_t total_keys = 200;
+  int64_t total_keys = 20;
   int64_t sieve = 2;
   for (int64_t i = 1; i <= total_keys; i++) {
     if (i % sieve == 0) {
@@ -207,10 +264,10 @@ TEST(BPlusTreeConcurrentTest, MyMixTestIterator) {
       dynamic_keys.push_back(i);
     }
   }
-  std::random_device rd;
-  std::mt19937 g(rd());
-  std::shuffle(perserved_keys.begin(), perserved_keys.end(), g);
-  std::shuffle(dynamic_keys.begin(), dynamic_keys.end(), g);
+  // std::random_device rd;
+  // std::mt19937 g(rd());
+  // std::shuffle(perserved_keys.begin(), perserved_keys.end(), g);
+  // std::shuffle(dynamic_keys.begin(), dynamic_keys.end(), g);
   InsertHelper(&tree, dynamic_keys, 1);
 
   auto insert_task = [&](int tid) { InsertHelper(&tree, perserved_keys, tid); };
@@ -244,7 +301,24 @@ TEST(BPlusTreeConcurrentTest, MyMixTestIterator) {
   for (size_t i = 0; i < num_threads; i++) {
     threads[i].join();
   }
-
+  for (auto iter = tree.Begin(); iter != tree.End(); ++iter) {
+    const auto &pair = *iter;
+    std::cout << pair.first << std::endl;
+  }
+  for (int i = 0; i < 10; ++i) {
+    int start_key = perserved_keys[i];
+    GenericKey<8> start_key_generic;
+    start_key_generic.SetFromInteger(start_key);
+    size_t size_inernal = i;
+    for (auto iter = tree.Begin(start_key_generic); iter != tree.End(); ++iter) {
+      const auto &pair = *iter;
+      std::cout << pair.first << std::endl;
+      if ((pair.first).ToString() % sieve == 0) {
+        EXPECT_EQ((pair.first).ToString(), perserved_keys[size_inernal]);
+        size_inernal++;
+      }
+    }
+  }
   threads.clear();
   for (size_t i = 0; i < num_threads; i++) {
     threads.emplace_back(iterate_task, i);

@@ -63,6 +63,8 @@ class BasicPageGuard {
 
   auto GetData() -> const char * { return page_->GetData(); }
 
+  void SetDirty(bool is_dirty) { is_dirty_ = is_dirty; }
+
   template <class T>
   auto As() -> const T * {
     return reinterpret_cast<const T *>(GetData());
@@ -91,7 +93,7 @@ class ReadPageGuard {
  public:
   ReadPageGuard() = default;
   ReadPageGuard(BufferPoolManager *bpm, Page *page) noexcept : guard_(bpm, page) {}
-
+  void SetDirty(bool is_dirty) { guard_.SetDirty(is_dirty); }
   ReadPageGuard(const ReadPageGuard &) = delete;
   auto operator=(const ReadPageGuard &) -> ReadPageGuard & = delete;
 
@@ -154,7 +156,7 @@ class WritePageGuard {
   WritePageGuard(BufferPoolManager *bpm, Page *page) noexcept : guard_(bpm, page) {}
   WritePageGuard(const WritePageGuard &) = delete;
   auto operator=(const WritePageGuard &) -> WritePageGuard & = delete;
-
+  void SetDirty(bool is_dirty) { guard_.SetDirty(is_dirty); }
   /** TODO(P1): Add implementation
    *
    * @brief Move constructor for WritePageGuard

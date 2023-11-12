@@ -2,14 +2,8 @@
  * index_iterator.cpp
  */
 #include <cassert>
-#include <utility>
 
-#include "argparse/argparse.hpp"
-#include "common/config.h"
 #include "storage/index/index_iterator.h"
-#include "storage/page/hash_table_page_defs.h"
-#include "storage/page/page.h"
-#include "storage/page/page_guard.h"
 
 namespace bustub {
 
@@ -17,62 +11,57 @@ namespace bustub {
  * NOTE: you can change the destructor/constructor method here
  * set your own input parameters
  */
-
 INDEX_TEMPLATE_ARGUMENTS
-INDEXITERATOR_TYPE::IndexIterator(ReadPageGuard &cur_pg, int cur_idx, const KeyComparator &comparator,
-                                  BufferPoolManager *bpm, INDEXITERATOR_TYPE *end_iterator)
-    : cur_idx_(cur_idx), comparator_(comparator), bpm_(bpm), end_iterator_(end_iterator) {
-  cur_pg_ = std::move(cur_pg);
+INDEXITERATOR_TYPE::IndexIterator(BufferPoolManager *buffer_pool_manager, page_id_t cur, int index) {
+  bpm_ = buffer_pool_manager;
+  index_ = index;
+  cur_ = cur;
+  if (cur != -1) {
+    auto guard = bpm_->FetchPageRead(cur);
+    auto leaf = guard.As<LeafPage>();
+    item_ = {leaf->KeyAt(index), leaf->ValueAt(index)};
+    guard.Drop();
+  }
 }
 
 INDEX_TEMPLATE_ARGUMENTS
-INDEXITERATOR_TYPE::~IndexIterator() = default;
+INDEXITERATOR_TYPE::~IndexIterator() = default;  // NOLINT
 
 INDEX_TEMPLATE_ARGUMENTS
-auto INDEXITERATOR_TYPE::IsEnd() -> bool {
-  // throw std::runtime_error("unimplemented");
-  return bpm_ == nullptr && cur_idx_ == 0;
-}
+auto INDEXITERATOR_TYPE::IsEnd() -> bool { return cur_ == -1; }
 
 INDEX_TEMPLATE_ARGUMENTS
-auto INDEXITERATOR_TYPE::operator*() -> const MappingType & {
-  // throw std::runtime_error("unimplemented");
-  auto cur_page = cur_pg_.As<LeafPage>();
-  //   MappingType mp = std::make_pair(cur_page->KeyAt(cur_idx_), cur_page->ValueAt(cur_idx_));
-  //   return std::move(mp);
-  // return *std::make_shared<const MappingType>(cur_page->KeyAt(cur_idx_), cur_page->ValueAt(cur_idx_));
-  return cur_page->PairAt(cur_idx_);
-}
+auto INDEXITERATOR_TYPE::operator*() -> const MappingType & { return item_; }
 
 INDEX_TEMPLATE_ARGUMENTS
 auto INDEXITERATOR_TYPE::operator++() -> INDEXITERATOR_TYPE & {
-  // throw std::runtime_error("unimplemented");
-  if (IsEnd()) {
-    return *this;
-  }
-  cur_idx_++;
-  auto cur_page = cur_pg_.As<LeafPage>();
-  if (cur_idx_ >= cur_page->GetSize()) {
-    page_id_t cur_id = cur_page->GetNextPageId();
-    if (cur_id == INVALID_PAGE_ID) {
-      bpm_ = nullptr;
+  index_++;
+
+  auto guard = bpm_->FetchPageRead(cur_);
+  auto leaf = guard.As<LeafPage>();
+
+  if (index_ >= leaf->GetSize()) {
+    auto next_id = leaf->GetNextPageId();
+    guard.Drop();
+    if (next_id != -1) {
+      index_ = 0;
+      cur_ = next_id;
+      guard = bpm_->FetchPageRead(cur_);
+      leaf = guard.As<LeafPage>();
+      item_ = {leaf->KeyAt(index_), leaf->ValueAt(index_)};
+      guard.Drop();
     } else {
-      auto new_pg = bpm_->FetchPageRead(cur_id);
-      cur_pg_ = std::move(new_pg);
+      cur_ = -1;
+      index_ = -1;
+      item_ = {};
     }
-    cur_idx_ = 0;
+  } else {
+    item_ = {leaf->KeyAt(index_), leaf->ValueAt(index_)};
+    guard.Drop();
   }
   return *this;
 }
-// INDEX_TEMPLATE_ARGUMENTS
-// auto INDEXITERATOR_TYPE::operator==(const IndexIterator &itr) const -> bool {
-//    // throw std::runtime_error("unimplemented");
 
-// }
-// INDEX_TEMPLATE_ARGUMENTS
-// auto INDEXITERATOR_TYPE::operator!=(const IndexIterator &itr) const -> bool {
-//    // throw std::runtime_error("unimplemented");
-// }
 template class IndexIterator<GenericKey<4>, RID, GenericComparator<4>>;
 
 template class IndexIterator<GenericKey<8>, RID, GenericComparator<8>>;
