@@ -70,7 +70,7 @@ void NestedLoopJoinExecutor::Init() {
   while (l_iter != left_tp.end()) {
     auto l_match = false;
     std::vector<Value> values;
-    while (r_iter != right_tp.end()) { // 如果右侧为 0 那么这里就进不去了
+    while (r_iter != right_tp.end()) {  // 如果右侧为 0 那么这里就进不去了
       // 到了此处， 左值一定存在
       bool match = false;  //  放在里面，允许左面的一行和右面的所行匹配
       auto haha = plan_->Predicate()->EvaluateJoin(&(*l_iter), left_executor_->GetOutputSchema(), &(*r_iter),
@@ -79,7 +79,7 @@ void NestedLoopJoinExecutor::Init() {
         match = true;
         // std::cout<<"匹配成功"<<std::endl;
       }
-      
+
       switch (plan_->GetJoinType()) {
         case JoinType::LEFT:
           // 左连接，保留 左面的部分,, 但是需要注意只保留一次
