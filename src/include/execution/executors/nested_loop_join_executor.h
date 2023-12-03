@@ -12,8 +12,10 @@
 
 #pragma once
 
+#include <iterator>
 #include <memory>
 #include <utility>
+#include <vector>
 
 #include "execution/executor_context.h"
 #include "execution/executors/abstract_executor.h"
@@ -55,6 +57,16 @@ class NestedLoopJoinExecutor : public AbstractExecutor {
  private:
   /** The NestedLoopJoin plan node to be executed. */
   const NestedLoopJoinPlanNode *plan_;
+  std::unique_ptr<AbstractExecutor> left_executor_;
+  std::unique_ptr<AbstractExecutor> right_executor_;
+  //   // Store the left Tuple s as sets.
+  // std::deque<Tuple> left_tp_;
+  // // Store the left Tuple s as sets.
+  // std::deque<Tuple> right_tp_;
+  // std::deque<Tuple>::iterator l_iter_;
+  // std::deque<Tuple>::iterator r_iter_;
+  std::vector<Tuple> result_;
+  std::vector<Tuple>::iterator iter_;
 };
 
 }  // namespace bustub
