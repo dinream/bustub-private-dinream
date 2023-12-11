@@ -16,6 +16,7 @@ auto Optimizer::Optimize(const AbstractPlanNodeRef &plan) -> AbstractPlanNodeRef
     return p;
   }
   // By default, use user-defined rules.
+  std::cout << "调用优化" << std::endl;
   return OptimizeCustom(plan);
 }
 

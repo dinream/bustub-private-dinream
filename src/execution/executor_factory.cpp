@@ -120,9 +120,13 @@ auto ExecutorFactory::CreateExecutor(ExecutorContext *exec_ctx, const AbstractPl
 
     // Create a new hash join executor
     case PlanType::HashJoin: {
+      std::cout << "创建HashJoin执行器" << std::endl;
       auto hash_join_plan = dynamic_cast<const HashJoinPlanNode *>(plan.get());
+      std::cout << "1" << std::endl;
       auto left = ExecutorFactory::CreateExecutor(exec_ctx, hash_join_plan->GetLeftPlan());
+      std::cout << "2" << std::endl;
       auto right = ExecutorFactory::CreateExecutor(exec_ctx, hash_join_plan->GetRightPlan());
+      std::cout << "3" << std::endl;
       return std::make_unique<HashJoinExecutor>(exec_ctx, hash_join_plan, std::move(left), std::move(right));
     }
 

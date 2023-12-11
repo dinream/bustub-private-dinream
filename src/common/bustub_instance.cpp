@@ -277,7 +277,7 @@ auto BustubInstance::ExecuteSqlTxn(const std::string &sql, ResultWriter &writer,
     // Optimize the query.
     bustub::Optimizer optimizer(*catalog_, IsForceStarterRule());
     auto optimized_plan = optimizer.Optimize(planner.plan_);
-
+    std::cout << "优化结束" << std::endl;
     l.unlock();
 
     // Execute the query.
@@ -286,7 +286,9 @@ auto BustubInstance::ExecuteSqlTxn(const std::string &sql, ResultWriter &writer,
       exec_ctx->InitCheckOptions(std::move(check_options));
     }
     std::vector<Tuple> result_set{};
+    std::cout << "开始执行" << std::endl;
     is_successful &= execution_engine_->Execute(optimized_plan, &result_set, txn, exec_ctx.get());
+    std::cout << "执行结束" << std::endl;
 
     // Return the result set as a vector of string.
     auto schema = planner.plan_->OutputSchema();
@@ -298,6 +300,7 @@ auto BustubInstance::ExecuteSqlTxn(const std::string &sql, ResultWriter &writer,
       writer.WriteHeaderCell(column.GetName());
     }
     writer.EndHeader();
+    // std::cout << "hahahaha" << std::endl;
 
     // Transforming result set into strings.
     for (const auto &tuple : result_set) {
@@ -309,6 +312,7 @@ auto BustubInstance::ExecuteSqlTxn(const std::string &sql, ResultWriter &writer,
     }
     writer.EndTable();
   }
+  // std::cout << "hahahaha" << std::endl;
 
   return is_successful;
 }

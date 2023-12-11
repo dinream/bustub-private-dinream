@@ -2,7 +2,7 @@
 
 # Show office hours on lecture days
 # "rowsort" means that the order of result doesn't matter.
-
+# 结果的顺序并不重要
 query rowsort +ensure:hash_join
 select * from
     __mock_table_tas_2023 inner join __mock_table_schedule_2023

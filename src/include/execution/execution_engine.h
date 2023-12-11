@@ -56,13 +56,16 @@ class ExecutionEngine {
     BUSTUB_ASSERT((txn == exec_ctx->GetTransaction()), "Broken Invariant");
 
     // Construct the executor for the abstract plan node
+    std::cout << "创建执行器" << std::endl;
     auto executor = ExecutorFactory::CreateExecutor(exec_ctx, plan);
-
+    std::cout << "创建执行器成功" << std::endl;
     // Initialize the executor
     auto executor_succeeded = true;
 
     try {
+      std::cout << "开始 init" << std::endl;
       executor->Init();
+      std::cout << "结束 init" << std::endl;
       PollExecutor(executor.get(), plan, result_set);
       PerformChecks(exec_ctx);
     } catch (const ExecutionException &ex) {
