@@ -132,8 +132,6 @@ void NestedLoopJoinExecutor::Init() {
     }
     r_iter = right_tp.begin();
     right_executor_->Init();
-    while (right_executor_->Next(&tp, &rd)) {
-    }
     l_iter++;
   }  // 无满足条件，返回 false ，外层
   iter_ = result_.begin();

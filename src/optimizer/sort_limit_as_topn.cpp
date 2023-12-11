@@ -16,7 +16,7 @@ auto Optimizer::OptimizeSortLimitAsTopN(const AbstractPlanNodeRef &plan) -> Abst
     const auto &limit_plan = dynamic_cast<const LimitPlanNode &>(*optimized_plan);
 
     BUSTUB_ENSURE(limit_plan.children_.size() == 1, "LimitPlanNode should have exactly 1 child.");
-
+    // 如果多个说明一定不是 sort
     auto const limit_plan_child = limit_plan.GetChildren();
     for (const auto &iter : limit_plan_child) {
       if (iter->GetType() == PlanType::Sort) {
