@@ -32,20 +32,20 @@ SeqScanExecutor::SeqScanExecutor(ExecutorContext *exec_ctx, const SeqScanPlanNod
     : AbstractExecutor(exec_ctx),
       plan_(plan),
       t_iter_(exec_ctx_->GetCatalog()->GetTable(plan_->GetTableOid())->table_->MakeIterator()) {
-  t_iter_ = exec_ctx_->GetCatalog()->GetTable(plan_->GetTableOid())->table_->MakeIterator();
+  // t_iter_ = exec_ctx_->GetCatalog()->GetTable(plan_->GetTableOid())->table_->MakeIterator();
   // std::cout<<"haha"<<std::endl;
 }
 
 void SeqScanExecutor::Init() {
   // throw NotImplementedException("SeqScanExecutor is not implemented");
-  Catalog *cl = exec_ctx_->GetCatalog();
+  // Catalog *cl = exec_ctx_->GetCatalog();
   t_id_ = plan_->GetTableOid();
-  TableInfo *table = cl->GetTable(plan_->GetTableOid());
+  // TableInfo *table = cl->GetTable(plan_->GetTableOid());
   // BUSTUB_ASSERT(table == nullptr, "table is not exist ");
   // *t_iter_ = (table->table_->MakeIterator());
   // *t_iter_ = (table->table_->MakeIterator());
   // t_iter_ = new TableIterator(table->table_->MakeIterator());
-  t_iter_ = table->table_->MakeIterator();
+  // t_iter_ = table->table_->MakeIterator();
 }
 
 auto SeqScanExecutor::Next(Tuple *tuple, RID *rid) -> bool {

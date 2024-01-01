@@ -102,30 +102,36 @@ class LockManager {
    * GENERAL BEHAVIOUR:
    *    Both LockTable() and LockRow() are blocking methods; they should wait till the lock is granted and then return.
    *    If the transaction was aborted in the meantime, do not grant the lock and return false.
-   *
+   *    LockTable() and LockRow() 原子操作？等待锁授权才返回，事务被中止，不授予锁而直接返回，，
+   *       但是状态如何被设置的呢，被当前线程授权的吗
    *
    * MULTIPLE TRANSACTIONS:
    *    LockManager should maintain a queue for each resource; locks should be granted to transactions in a FIFO manner.
    *    If there are multiple compatible lock requests, all should be granted at the same time
    *    as long as FIFO is honoured.
+   * LockManager应该为每个资源维护一个队列； 锁应该以先进先出的方式授予事务。
+   * 如果有多个兼容锁请求，则应同时授予所有请求
+   * 只要遵循先进先出原则。
    *
    * SUPPORTED LOCK MODES:
    *    Table locking should support all lock modes.
    *    Row locking should not support Intention locks. Attempting this should set the TransactionState as
    *    ABORTED and throw a TransactionAbortException (ATTEMPTED_INTENTION_LOCK_ON_ROW)
-   *
+   *    表锁定应该支持所有锁定模式。
+   * 行锁不应该支持意向锁。 尝试此操作应将 TransactionState 设置为
+   * 中止并抛出 TransactionAbortException (ATTEMPTED_INTENTION_LOCK_ON_ROW)
    *
    * ISOLATION LEVEL:
    *    Depending on the ISOLATION LEVEL, a transaction should attempt to take locks:
    *    - Only if required, AND
    *    - Only if allowed
-   *
+   *    一个事务获得锁的两个条件: 请求并且允许
    *    For instance S/IS/SIX locks are not required under READ_UNCOMMITTED, and any such attempt should set the
    *    TransactionState as ABORTED and throw a TransactionAbortException (LOCK_SHARED_ON_READ_UNCOMMITTED).
-   *
+   *    读未提交，不需要 共享锁 ； 任何此类请求应该直接 抛出错误+事务终止
    *    Similarly, X/IX locks on rows are not allowed if the the Transaction State is SHRINKING, and any such attempt
    *    should set the TransactionState as ABORTED and throw a TransactionAbortException (LOCK_ON_SHRINKING).
-   *
+   *    事务在收缩，行排他锁，不能来。
    *    REPEATABLE_READ:
    *        The transaction is required to take all locks.
    *        All locks are allowed in the GROWING state
@@ -147,16 +153,16 @@ class LockManager {
    *    belongs to. For instance, if an exclusive lock is attempted on a row, the transaction must hold either
    *    X, IX, or SIX on the table. If such a lock does not exist on the table, Lock() should set the TransactionState
    *    as ABORTED and throw a TransactionAbortException (TABLE_LOCK_NOT_PRESENT)
-   *
-   *
+   *    对行的加锁 必须 先有对这个事务的高级锁
+   * 
    * LOCK UPGRADE:
    *    Calling Lock() on a resource that is already locked should have the following behaviour:
    *    - If requested lock mode is the same as that of the lock presently held,
    *      Lock() should return true since it already has the lock.
    *    - If requested lock mode is different, Lock() should upgrade the lock held by the transaction.
-   *
+   *    锁升级
    *    A lock request being upgraded should be prioritised over other waiting lock requests on the same resource.
-   *
+   *    锁升级 优先 -于 其他锁请求
    *    While upgrading, only the following transitions should be allowed:
    *        IS -> [S, X, IX, SIX]
    *        S -> [X, SIX]
@@ -168,7 +174,7 @@ class LockManager {
    *    Furthermore, only one transaction should be allowed to upgrade its lock on a given resource.
    *    Multiple concurrent lock upgrades on the same resource should set the TransactionState as
    *    ABORTED and throw a TransactionAbortException (UPGRADE_CONFLICT).
-   *
+   *    仅有一个事务 允许锁升级，多个并发锁的升级 会 冲突
    *
    * BOOK KEEPING:
    *    If a lock is granted to a transaction, lock manager should update its
@@ -183,11 +189,11 @@ class LockManager {
    *    Both should ensure that the transaction currently holds a lock on the resource it is attempting to unlock.
    *    If not, LockManager should set the TransactionState as ABORTED and throw
    *    a TransactionAbortException (ATTEMPTED_UNLOCK_BUT_NO_LOCK_HELD)
-   *
+   *    确保 释放的锁以及 是 加锁了
    *    Additionally, unlocking a table should only be allowed if the transaction does not hold locks on any
    *    row on that table. If the transaction holds locks on rows of the table, Unlock should set the Transaction State
    *    as ABORTED and throw a TransactionAbortException (TABLE_UNLOCKED_BEFORE_UNLOCKING_ROWS).
-   *
+   *    释放一个表 首先得是 释放了它的 所有行之后
    *    Finally, unlocking a resource should also grant any new lock requests for the resource (if possible).
    *
    * TRANSACTION STATE UPDATE
@@ -315,8 +321,10 @@ class LockManager {
   auto UpgradeLockTable(Transaction *txn, LockMode lock_mode, const table_oid_t &oid) -> bool;
   auto UpgradeLockRow(Transaction *txn, LockMode lock_mode, const table_oid_t &oid, const RID &rid) -> bool;
   auto AreLocksCompatible(LockMode l1, LockMode l2) -> bool;
-  auto CanTxnTakeLock(Transaction *txn, LockMode lock_mode) -> bool;
+  auto CanTxnTakeLock(Transaction *txn, LockMode lock_mode,std::shared_ptr<LockRequestQueue> &lock_request_queue) -> bool;
   void GrantNewLocksIfPossible(LockRequestQueue *lock_request_queue);
+  void AddIntoTxnTableLockSet(Transaction *txn, LockMode lock_mode, const table_oid_t &oid);
+  void RemoveFromTxnTableLockSet(Transaction *txn, LockMode lock_mode, const table_oid_t &oid);
   auto CanLockUpgrade(LockMode curr_lock_mode, LockMode requested_lock_mode) -> bool;
   auto CheckAppropriateLockOnTable(Transaction *txn, const table_oid_t &oid, LockMode row_lock_mode) -> bool;
   auto FindCycle(txn_id_t source_txn, std::vector<txn_id_t> &path, std::unordered_set<txn_id_t> &on_path,
