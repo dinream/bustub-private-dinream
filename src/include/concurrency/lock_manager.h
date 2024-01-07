@@ -154,7 +154,7 @@ class LockManager {
    *    X, IX, or SIX on the table. If such a lock does not exist on the table, Lock() should set the TransactionState
    *    as ABORTED and throw a TransactionAbortException (TABLE_LOCK_NOT_PRESENT)
    *    对行的加锁 必须 先有对这个事务的高级锁
-   * 
+   *
    * LOCK UPGRADE:
    *    Calling Lock() on a resource that is already locked should have the following behaviour:
    *    - If requested lock mode is the same as that of the lock presently held,
@@ -318,19 +318,27 @@ class LockManager {
  private:
   /** Spring 2023 */
   /* You are allowed to modify all functions below. */
+  auto LockTableTry(Transaction *txn, LockMode lock_mode, const table_oid_t &oid, bool ifdirector) -> bool;
   auto UpgradeLockTable(Transaction *txn, LockMode lock_mode, const table_oid_t &oid) -> bool;
   auto UpgradeLockRow(Transaction *txn, LockMode lock_mode, const table_oid_t &oid, const RID &rid) -> bool;
   auto AreLocksCompatible(LockMode l1, LockMode l2) -> bool;
-  auto CanTxnTakeLock(Transaction *txn, LockMode lock_mode,std::shared_ptr<LockRequestQueue> &lock_request_queue) -> bool;
+  auto CanTxnTakeLock(Transaction *txn, LockMode lock_mode, std::shared_ptr<LockRequestQueue> &lock_request_queue)
+      -> bool;
+  auto CheckTableOwnLock(Transaction *txn, LockMode lock_mode, const table_oid_t &oid) -> bool;
   void GrantNewLocksIfPossible(LockRequestQueue *lock_request_queue);
   void AddIntoTxnTableLockSet(Transaction *txn, LockMode lock_mode, const table_oid_t &oid);
+  void AddIntoTxnRowLockSet(Transaction *txn, LockMode lock_mode, const table_oid_t &oid, const RID &rid);
   void RemoveFromTxnTableLockSet(Transaction *txn, LockMode lock_mode, const table_oid_t &oid);
+  void RemoveFromTxnRowLockSet(Transaction *txn, LockMode lock_mode, const table_oid_t &oid, const RID &rid);
   auto CanLockUpgrade(LockMode curr_lock_mode, LockMode requested_lock_mode) -> bool;
+  auto CheckAllRowsUnlock(Transaction *txn, const table_oid_t &oid) -> bool;
   auto CheckAppropriateLockOnTable(Transaction *txn, const table_oid_t &oid, LockMode row_lock_mode) -> bool;
   auto FindCycle(txn_id_t source_txn, std::vector<txn_id_t> &path, std::unordered_set<txn_id_t> &on_path,
                  std::unordered_set<txn_id_t> &visited, txn_id_t *abort_txn_id) -> bool;
   void UnlockAll();
-
+  void BuildGraph();
+  auto HasCycleByDfs(txn_id_t txn_id) -> bool;
+  void RemoveAllAboutAbortTxn(txn_id_t abort_id);
   /** Structure that holds lock requests for a given table oid */
   std::unordered_map<table_oid_t, std::shared_ptr<LockRequestQueue>> table_lock_map_;
   /** Coordination */
@@ -345,6 +353,7 @@ class LockManager {
   std::thread *cycle_detection_thread_;
   /** Waits-for graph representation. */
   std::unordered_map<txn_id_t, std::vector<txn_id_t>> waits_for_;
+  std::unordered_map<txn_id_t, int> is_visited_;
   std::mutex waits_for_latch_;
 };
 

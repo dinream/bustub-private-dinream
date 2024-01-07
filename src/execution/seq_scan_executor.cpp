@@ -31,7 +31,7 @@ namespace bustub {
 SeqScanExecutor::SeqScanExecutor(ExecutorContext *exec_ctx, const SeqScanPlanNode *plan)
     : AbstractExecutor(exec_ctx),
       plan_(plan),
-      t_iter_(exec_ctx_->GetCatalog()->GetTable(plan_->GetTableOid())->table_->MakeIterator()) {
+      t_iter_(exec_ctx_->GetCatalog()->GetTable(plan_->GetTableOid())->table_->MakeEagerIterator()) {
   // t_iter_ = exec_ctx_->GetCatalog()->GetTable(plan_->GetTableOid())->table_->MakeIterator();
   // std::cout<<"haha"<<std::endl;
 }
@@ -40,12 +40,20 @@ void SeqScanExecutor::Init() {
   // throw NotImplementedException("SeqScanExecutor is not implemented");
   // Catalog *cl = exec_ctx_->GetCatalog();
   t_id_ = plan_->GetTableOid();
+  if (exec_ctx_->IsDelete()) {
+    exec_ctx_->GetLockManager()->LockTable(exec_ctx_->GetTransaction(),
+                                           bustub::LockManager::LockMode::INTENTION_EXCLUSIVE, t_id_);
+  } else {
+    exec_ctx_->GetLockManager()->LockTable(exec_ctx_->GetTransaction(), bustub::LockManager::LockMode::INTENTION_SHARED,
+                                           t_id_);
+  }
   // TableInfo *table = cl->GetTable(plan_->GetTableOid());
   // BUSTUB_ASSERT(table == nullptr, "table is not exist ");
   // *t_iter_ = (table->table_->MakeIterator());
   // *t_iter_ = (table->table_->MakeIterator());
   // t_iter_ = new TableIterator(table->table_->MakeIterator());
   // t_iter_ = table->table_->MakeIterator();
+  t_iter_ = exec_ctx_->GetCatalog()->GetTable(plan_->GetTableOid())->table_->MakeEagerIterator();
 }
 
 auto SeqScanExecutor::Next(Tuple *tuple, RID *rid) -> bool {
