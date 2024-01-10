@@ -2,13 +2,14 @@
  * lock_manager_test.cpp
  */
 
+#include "concurrency/lock_manager.h"
 #include <unistd.h>
+#include <list>
+#include <memory>
 #include <random>
 #include <thread>  // NOLINT
-
 #include "common/config.h"
 #include "common_checker.h"  // NOLINT
-#include "concurrency/lock_manager.h"
 #include "concurrency/transaction.h"
 #include "concurrency/transaction_manager.h"
 
@@ -553,4 +554,122 @@ void MyBlockTest() {
   delete txn2;
 }
 TEST(LockManagerTest, BlockTest) { MyBlockTest(); }  // NOLINT
+
+/** IS, IS, X integration test */
+void MyBlockTest2() {
+  LockManager lock_mgr{};
+  TransactionManager txn_mgr{&lock_mgr};
+  lock_mgr.txn_manager_ = &txn_mgr;
+
+  table_oid_t toid{0};
+  auto *txn0 = txn_mgr.Begin();
+  auto *txn1 = txn_mgr.Begin();
+  auto *txn2 = txn_mgr.Begin();
+  EXPECT_EQ(0, txn0->GetTransactionId());
+  EXPECT_EQ(1, txn1->GetTransactionId());
+  EXPECT_EQ(2, txn2->GetTransactionId());
+
+  std::thread t0([&] {
+    auto res = lock_mgr.LockTable(txn0, LockManager::LockMode::SHARED_INTENTION_EXCLUSIVE, toid);
+    EXPECT_EQ(true, res);
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    lock_mgr.UnlockTable(txn0, toid);
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    CheckTableLockSizes(txn1, 0, 1, 0, 0, 0);
+    CheckTableLockSizes(txn2, 0, 0, 0, 0, 0);
+  });
+
+  std::thread t1([&] {
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    // blocked
+    bool res = lock_mgr.LockTable(txn1, LockManager::LockMode::EXCLUSIVE, toid);
+    EXPECT_EQ(res, true);
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    lock_mgr.UnlockTable(txn1, toid);
+    txn_mgr.Commit(txn1);
+    EXPECT_EQ(TransactionState::COMMITTED, txn1->GetState());
+  });
+
+  std::thread t2([&] {
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    // blocked
+    bool res = lock_mgr.LockTable(txn2, LockManager::LockMode::SHARED, toid);
+    EXPECT_EQ(res, true);
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    lock_mgr.UnlockTable(txn2, toid);
+    txn_mgr.Commit(txn2);
+    EXPECT_EQ(TransactionState::COMMITTED, txn2->GetState());
+  });
+
+  t0.join();
+  t1.join();
+  t2.join();
+
+  delete txn0;
+  delete txn1;
+  delete txn2;
+}
+TEST(LockManagerTest, BlockTest2) { MyBlockTest2(); }  // NOLINT
+
+bool is_l = false;
+
+void DoIt(const std::shared_ptr<int> &i1) {
+  std::cout << "loop_before: " << i1.use_count() << std::endl;
+
+  while (!is_l) {
+  }
+  std::cout << "loop: " << i1 << std::endl;  // 0x55ccc9b303b0
+  std::cout << "loop_after: " << i1.use_count() << std::endl;
+  std::cout << *i1 << std::endl;  // 5 , 线程2 修改就是 7
+}
+/** IS, IS, X integration test */
+void MyPointTest() {
+  // 定义一个 全局链表
+  std::list<std::shared_ptr<int>> l1;
+  // 插入数据
+  // std::cout<<"li_ "<< *(l1.back()) <<std::endl;
+  l1.push_back(std::make_shared<int>(1));
+  std::cout << "li_ " << &(l1.back()) << std::endl;
+  l1.push_back(std::make_shared<int>(2));
+  std::cout << "li_ " << &(l1.back()) << std::endl;
+  l1.push_back(std::make_shared<int>(3));
+  int i[100];
+  std::cout << "li_ " << &(l1.back()) << std::endl;
+  l1.push_back(std::make_shared<int>(4));
+  std::cout << "li_ " << &(l1.back()) << std::endl;
+  l1.push_back(std::make_shared<int>(5));
+  std::cout << "li_ " << &(l1.back()) << std::endl;
+  std::cout << "外面: " << ((l1.back())).use_count() << std::endl;
+  // 定义两个线程
+  std::thread t_1([&] { DoIt(l1.back()); });
+  i[0] = 0;
+  std::thread t_2([&] {
+    // 线程2 休眠一会，然后再启动并且执行一些操作
+    std::this_thread::sleep_for(std::chrono::seconds(3));
+    for (auto it = l1.begin(); it != l1.end(); ++it) {
+      if (**it == 3) {
+        l1.erase(it);
+        break;
+      }
+    }
+    for (auto it = l1.begin(); it != l1.end(); ++it) {
+      if (**it == 5) {
+        std::shared_ptr<int> &sp = *it;
+        std::cout << "T2: " << *it << std::endl;  // 0x55ccc9b303b0
+        std::cout << "T2_erase_before: " << (*it).use_count() << std::endl;
+        l1.erase(it);
+        std::cout << "T2_erase_after: " << (*it).use_count() << std::endl;
+        **it = 7;
+        std::cout << "T2_2: " << *sp << std::endl;
+        break;
+      }
+    }
+    is_l = true;
+  });
+
+  t_1.join();
+  t_2.join();
+}
+TEST(LockManagerTest, PointTest) { MyPointTest(); }  // NOLINT
+
 }  // namespace bustub

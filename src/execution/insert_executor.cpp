@@ -30,6 +30,8 @@ InsertExecutor::InsertExecutor(ExecutorContext *exec_ctx, const InsertPlanNode *
 
 void InsertExecutor::Init() {
   // throw NotImplementedException("InsertExecutor is not implemented");
+  // 尝试加一个排他锁。
+  TryLockTable(bustub::LockManager::LockMode::INTENTION_EXCLUSIVE, plan_->table_oid_);
   child_executor_->Init();
   is_ok_ = false;
 }
@@ -59,14 +61,15 @@ auto InsertExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
       *rid = ridopt.value();  // RID 类是有 等号赋值的
       auto twr = TableWriteRecord(tableinfo->oid_, *rid, t_heap.get());
       twr.wtype_ = WType::INSERT;
-      exec_ctx_->GetTransaction()->GetWriteSet()->push_back(twr);
+      exec_ctx_->GetTransaction()->AppendTableWriteRecord(twr);
+      // 遍历这个表的索引
       for (auto &x : indexsinfo) {
         Tuple k_tuple = tuple->KeyFromTuple(tableinfo->schema_, *(x->index_->GetKeySchema()), x->index_->GetKeyAttrs());
         // insert into index. uncluster index
         x->index_->InsertEntry(k_tuple, *rid, exec_ctx_->GetTransaction());
         auto iwr =
             IndexWriteRecord{*rid, tableinfo->oid_, WType::INSERT, k_tuple, x->index_oid_, exec_ctx_->GetCatalog()};
-        exec_ctx_->GetTransaction()->GetIndexWriteSet()->push_back(iwr);
+        exec_ctx_->GetTransaction()->AppendIndexWriteRecord(iwr);
       }
     }
   }

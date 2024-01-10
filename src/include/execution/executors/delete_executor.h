@@ -13,6 +13,7 @@
 #pragma once
 
 #include <memory>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -54,6 +55,68 @@ class DeleteExecutor : public AbstractExecutor {
 
   /** @return The output schema for the delete */
   auto GetOutputSchema() const -> const Schema & override { return plan_->OutputSchema(); };
+
+  void TryLockTable(const bustub::LockManager::LockMode &lock_mode, const table_oid_t &oid) {
+    std::string type;
+    if (lock_mode == bustub::LockManager::LockMode::EXCLUSIVE) {
+      type = "X";
+    } else if (lock_mode == bustub::LockManager::LockMode::INTENTION_EXCLUSIVE) {
+      type = "IX";
+    } else if (lock_mode == bustub::LockManager::LockMode::INTENTION_SHARED) {
+      type = "IS";
+    } else if (lock_mode == bustub::LockManager::LockMode::SHARED) {
+      type = "S";
+    }
+
+    try {
+      bool success = exec_ctx_->GetLockManager()->LockTable(exec_ctx_->GetTransaction(), lock_mode, oid);
+      if (!success) {
+        throw ExecutionException("DeleteExecutor TryLockTable " + type + " fail");
+      }
+    } catch (TransactionAbortException &e) {
+      throw ExecutionException("DeleteExecutor TryLockTable " + type + " fail");
+    }
+  }
+
+  void TryUnLockTable(const table_oid_t &oid) {
+    try {
+      bool success = exec_ctx_->GetLockManager()->UnlockTable(exec_ctx_->GetTransaction(), oid);
+      if (!success) {
+        throw ExecutionException("DeleteExecutor TryUnLockTable fail");
+      }
+    } catch (TransactionAbortException &e) {
+      throw ExecutionException("DeleteExecutor TryUnLockTable fail");
+    }
+  }
+
+  void TryLockRow(const bustub::LockManager::LockMode &lock_mode, const table_oid_t &oid, const RID &rid) {
+    std::string type;
+    if (lock_mode == bustub::LockManager::LockMode::EXCLUSIVE) {
+      type = "X";
+    } else if (lock_mode == bustub::LockManager::LockMode::SHARED) {
+      type = "S";
+    }
+
+    try {
+      bool success = exec_ctx_->GetLockManager()->LockRow(exec_ctx_->GetTransaction(), lock_mode, oid, rid);
+      if (!success) {
+        throw ExecutionException("DeleteExecutor TryLockRow " + type + " fail");
+      }
+    } catch (TransactionAbortException &e) {
+      throw ExecutionException("DeleteExecutor TryLockRow " + type + " fail");
+    }
+  }
+
+  void TryUnLockRow(const table_oid_t &oid, const RID &rid, bool force = false) {
+    try {
+      bool success = exec_ctx_->GetLockManager()->UnlockRow(exec_ctx_->GetTransaction(), oid, rid, force);
+      if (!success) {
+        throw ExecutionException("DeleteExecutor TryUnLockRow fail");
+      }
+    } catch (TransactionAbortException &e) {
+      throw ExecutionException("DeleteExecutor TryUnLockRow fail");
+    }
+  }
 
  private:
   /** The delete plan node to be executed */

@@ -33,6 +33,11 @@ auto LockManager::LockTableTry(Transaction *txn, LockMode lock_mode, const table
     // 对于读未提交级别的事务，只需要加 排他锁
     if (iso_level == IsolationLevel::READ_UNCOMMITTED) {
       if (lock_mode != LockMode::EXCLUSIVE && lock_mode != LockMode::INTENTION_EXCLUSIVE) {
+        if (lock_mode == LockMode::SHARED_INTENTION_EXCLUSIVE || lock_mode == LockMode::SHARED ||
+            lock_mode == LockMode::INTENTION_SHARED) {
+          txn->SetState(TransactionState::ABORTED);
+          throw TransactionAbortException(txn->GetTransactionId(), AbortReason::LOCK_SHARED_ON_READ_UNCOMMITTED);
+        }
         return false;
       }
     }
@@ -44,17 +49,23 @@ auto LockManager::LockTableTry(Transaction *txn, LockMode lock_mode, const table
     // 对于可重复读，只要你释放过一个，就不能读了，更不能写了。
     if (iso_level == IsolationLevel::REPEATABLE_READ) {
       // std::cout<<""<<std::endl;
+      txn->SetState(TransactionState::ABORTED);
+      throw TransactionAbortException(txn->GetTransactionId(), AbortReason::LOCK_ON_SHRINKING);
       return false;
     }
     // 对于读已提交级别，释放过了一个写，但是还能读。但是不能写了
     if (iso_level == IsolationLevel::READ_COMMITTED) {
       if (lock_mode != LockMode::SHARED && lock_mode != LockMode::INTENTION_SHARED) {
+        txn->SetState(TransactionState::ABORTED);
+        throw TransactionAbortException(txn->GetTransactionId(), AbortReason::LOCK_ON_SHRINKING);
         return false;
       }
     }
     // 对于读未提交级别，释放过一个写，能读，但是不能加读锁，所以返回 false；// 感觉还可以??? 或者是和读
     // 已提交一样，不能中间搞事情.破环原子性? 至少你写完之后,再次写.
     if (iso_level == IsolationLevel::READ_UNCOMMITTED) {
+      txn->SetState(TransactionState::ABORTED);
+      throw TransactionAbortException(txn->GetTransactionId(), AbortReason::LOCK_ON_SHRINKING);
       return false;
     }
   }
@@ -199,18 +210,29 @@ auto LockManager::LockRow(Transaction *txn, LockMode lock_mode, const table_oid_
   }
   // 判断这个事务的状态下,隔离级别 和 申请的 加锁类型 是否冲突
   // 加锁阶段---对于 读已提交，和，可重复读，读写锁----都可以申请的，对于读未提交，只能申请--写锁。
-  // 成长阶段: 成长阶段 表锁一定是 排他的,所以都可以  读未提交,---,--
+  // 成长阶段: 成长阶段 表锁一定是 排他的,所以都可以  读未提交,---,--后面尝试加锁的时候会排除掉这种情况
   // if(txn_state == TransactionState::GROWING){
   //   // 对于读未提交，只能 排他锁 (但是 实际上 表锁已经排它了,,这里都可以??)
   //   // 反例: 排他锁,-->发现表  有,排他,或者排他意向,, 或者 共享 排他意向才可以-->但是--无所谓,
-  //   后面尝试加锁的时候会排除掉这种情况 if(iso_level== IsolationLevel::READ_UNCOMMITTED){
+  //    if(iso_level== IsolationLevel::READ_UNCOMMITTED){
   //     if(lock_mode != LockMode::EXCLUSIVE){
-  //       return false;
+  //       txn->SetState(TransactionState::ABORTED);
+  //       throw TransactionAbortException(txn->GetTransactionId(), AbortReason::);
   //     }
   //   }
   //   // 对于读已提交：共享 排他都可能加
   //   // 对于可重复读：共享 排他都可能加
   // }
+  if (txn_state == TransactionState::GROWING) {
+    if (iso_level == IsolationLevel::READ_UNCOMMITTED) {
+      if (lock_mode == LockMode::SHARED) {
+        // row: READ_UNCOMMITTED下只能获取 EXCLUSIVE 锁
+        txn->SetState(TransactionState::ABORTED);
+        throw TransactionAbortException(txn->GetTransactionId(), AbortReason::LOCK_SHARED_ON_READ_UNCOMMITTED);
+      }
+    }
+    // 如果是READ_COMMITTED或者REPEATABLE_READ隔离级别，所有的锁都能在GROWING阶段获取
+  }
   // 收缩阶段
   if (txn_state == TransactionState::SHRINKING) {
     if (iso_level == IsolationLevel::REPEATABLE_READ) {  // 收缩+可重复读  ->只能 排他锁,,但是行排他锁下能在收缩用
@@ -231,22 +253,35 @@ auto LockManager::LockRow(Transaction *txn, LockMode lock_mode, const table_oid_
   // 判断 是否有 对应的 表锁 ，如果没有 ，请求 表锁 这里不需要等待，能就是能，能就是不能。
   if (lock_mode == LockMode::SHARED && !CheckTableOwnLock(txn, LockMode::INTENTION_SHARED, oid) &&
       !CheckTableOwnLock(txn, LockMode::SHARED, oid) &&
+      !CheckTableOwnLock(txn, LockMode::SHARED_INTENTION_EXCLUSIVE, oid) &&
+      !CheckTableOwnLock(txn, LockMode::INTENTION_EXCLUSIVE, oid) &&
+      !CheckTableOwnLock(txn, LockMode::EXCLUSIVE, oid)) {
+    // if (!LockTableTry(txn, LockMode::INTENTION_SHARED, oid, false) &&
+    //     !LockTableTry(txn, LockMode::SHARED, oid,
+    //                   false) &&  // 这里会排除掉，试图在 加锁阶段 的 读未提交级别，申请 共享锁
+    //     !LockTableTry(txn, LockMode::SHARED_INTENTION_EXCLUSIVE, oid, false)) {
+    //   txn->SetState(TransactionState::ABORTED);
+    //   throw TransactionAbortException(txn->GetTransactionId(), AbortReason::TABLE_LOCK_NOT_PRESENT);
+    //   return false;
+    // }
+    txn->SetState(TransactionState::ABORTED);
+    throw TransactionAbortException(txn->GetTransactionId(), AbortReason::TABLE_LOCK_NOT_PRESENT);
+    return false;
+  }
+  if (lock_mode == LockMode::EXCLUSIVE && !CheckTableOwnLock(txn, LockMode::INTENTION_EXCLUSIVE, oid) &&
+      !CheckTableOwnLock(txn, LockMode::EXCLUSIVE, oid) &&
       !CheckTableOwnLock(txn, LockMode::SHARED_INTENTION_EXCLUSIVE, oid)) {
-    if (!LockTableTry(txn, LockMode::INTENTION_SHARED, oid, false) &&
-        !LockTableTry(txn, LockMode::SHARED, oid,
-                      false) &&  // 这里会排除掉，试图在 加锁阶段 的 读未提交级别，申请 共享锁
-        !LockTableTry(txn, LockMode::SHARED_INTENTION_EXCLUSIVE, oid, false)) {
-      return false;
-    }
-  } else if (lock_mode == LockMode::EXCLUSIVE && !CheckTableOwnLock(txn, LockMode::INTENTION_EXCLUSIVE, oid) &&
-             !CheckTableOwnLock(txn, LockMode::EXCLUSIVE, oid) &&
-             !CheckTableOwnLock(txn, LockMode::SHARED_INTENTION_EXCLUSIVE, oid)) {
-    if (!LockTableTry(txn, LockMode::INTENTION_EXCLUSIVE, oid, false) &&
-        !LockTableTry(txn, LockMode::EXCLUSIVE, oid, false) &&
-        !LockTableTry(txn, LockMode::SHARED_INTENTION_EXCLUSIVE, oid, false)) {
-      // printf("err3\n");
-      return false;
-    }
+    // if (!LockTableTry(txn, LockMode::INTENTION_EXCLUSIVE, oid, false) &&
+    //     !LockTableTry(txn, LockMode::EXCLUSIVE, oid, false) &&
+    //     !LockTableTry(txn, LockMode::SHARED_INTENTION_EXCLUSIVE, oid, false)) {
+    //   // printf("err3\n");
+    //   txn->SetState(TransactionState::ABORTED);
+    //   throw TransactionAbortException(txn->GetTransactionId(), AbortReason::TABLE_LOCK_NOT_PRESENT);
+    //   return false;
+    // }
+    txn->SetState(TransactionState::ABORTED);
+    throw TransactionAbortException(txn->GetTransactionId(), AbortReason::TABLE_LOCK_NOT_PRESENT);
+    return false;
   }
   // 可以 有 对应的表锁 或者 刚刚拿到了对应的表锁。（授予了，但是没有保存）
   // 如果一个事务拿到了 表的  意向 写 锁，这里可以申请  行的 意向写锁，而且不需要进行  表锁 升级
@@ -311,6 +346,10 @@ auto LockManager::LockRow(Transaction *txn, LockMode lock_mode, const table_oid_
 
 auto LockManager::UnlockRow(Transaction *txn, const table_oid_t &oid, const RID &rid, bool force) -> bool {
   row_lock_map_latch_.lock();
+  if (row_lock_map_.count(rid) == 0) {
+    row_lock_map_[rid] = std::make_shared<LockRequestQueue>();
+  }
+
   auto lrq = row_lock_map_[rid];
   std::unique_lock<std::mutex> lock(lrq->latch_);
   row_lock_map_latch_.unlock();
@@ -369,12 +408,18 @@ void LockManager::UnlockAll() {
 void LockManager::AddEdge(txn_id_t t1, txn_id_t t2) {
   // std::unique_lock<std::mutex> lock(waits_for_latch_);
   waits_for_[t1].emplace_back(t2);
+  // if (std::find(all_node_.begin(), all_node_.end(), t1) == all_node_.end()) {
+  //   all_node_.insert(t1);
+  // }
 }
 
 void LockManager::RemoveEdge(txn_id_t t1, txn_id_t t2) {
   // std::unique_lock<std::mutex> lock(waits_for_latch_);
   // std::unordered_map<txn_id_t, std::vector<txn_id_t>> waits_for_;
   waits_for_[t1].erase(std::find(waits_for_[t1].begin(), waits_for_[t1].end(), t2));
+  // if (waits_for_[t1].empty()) {
+  //   all_node_.erase(std::find(all_node_.begin(), all_node_.end(), t1));
+  // }
 }
 
 // 使用深度优先搜索（DFS）寻找循环。
@@ -382,11 +427,13 @@ void LockManager::RemoveEdge(txn_id_t t1, txn_id_t t2) {
 // 您的函数应该返回它找到的第一个循环。如果您的图表没有循环， HasCycle 应返回 false。
 auto LockManager::HasCycle(txn_id_t *txn_id) -> bool {
   // 初始化访问列表
-  for (auto &[k, v] : waits_for_) {
-    is_visited_[k] = 0;
-  }
 
-  for (auto &[k, v] : waits_for_) {
+  for (auto &[kkk, v] : waits_for_) {
+    auto k = kkk;
+    for (auto &[kk, vv] : waits_for_) {
+      is_visited_[kk] = 0;
+    }
+    std::cout << k << std::endl;
     if (is_visited_[k] == 0 && HasCycleByDfs(k)) {
       *txn_id = k;
       return true;
@@ -396,14 +443,24 @@ auto LockManager::HasCycle(txn_id_t *txn_id) -> bool {
 
   return false;
 }
-auto LockManager::HasCycleByDfs(txn_id_t txn_id) -> bool {
+auto LockManager::HasCycleByDfs(txn_id_t &txn_id) -> bool {
   is_visited_[txn_id] = 1;  // GREY
   for (auto x : waits_for_[txn_id]) {
     if (is_visited_[x] == 1) {
+      is_visited_[x] = 3;
+      if (x > txn_id) {
+        txn_id = x;
+      }
       return true;
     }
     if (is_visited_[x] == 0) {
-      return HasCycleByDfs(x);
+      auto y = x;
+      if (HasCycleByDfs(y)) {
+        if (is_visited_[x] == 3 || y > txn_id) {
+          txn_id = y;
+        }
+        return true;
+      }
     }
   }
 
@@ -542,7 +599,7 @@ auto LockManager::UpgradeLockRow(Transaction *txn, LockMode lock_mode, const tab
   return false;
 }
 // 判断 1 锁 是否 可以  兼容  2 锁 ，2 是新的
-auto LockManager::AreLocksCompatible(LockMode l1, LockMode l2) -> bool {
+auto LockManager::AreLocksCompatible(LockMode l2, LockMode l1) -> bool {
   if (l1 == LockMode::INTENTION_SHARED) {
     return l2 == LockMode::INTENTION_SHARED || l2 == LockMode::INTENTION_EXCLUSIVE || l2 == LockMode::SHARED ||
            l2 == LockMode::SHARED_INTENTION_EXCLUSIVE;
@@ -629,7 +686,7 @@ auto LockManager::CanTxnTakeLock(Transaction *txn, LockMode lock_mode,
   }
   // 判断当前拿到锁的事务，是否 兼容 这个 事务 锁
   for (auto lr : lock_request_queue->request_queue_) {
-    if (lr->granted_ && !AreLocksCompatible(lock_mode, lr->lock_mode_)) {
+    if (lr->granted_ && lr->txn_id_ != txn->GetTransactionId() && !AreLocksCompatible(lock_mode, lr->lock_mode_)) {
       return false;
     }
   }
@@ -644,29 +701,38 @@ auto LockManager::CanTxnTakeLock(Transaction *txn, LockMode lock_mode,
           return false;
         }
         lock_request_queue->upgrading_ = INVALID_TXN_ID;
+        lr->granted_ = true;
+        return true;
       }
+    }
+  }
+  for (auto &lr : lock_request_queue->request_queue_) {
+    // 其他事务（在当前事务前面）没有赋予锁，但是和当前锁不兼容， 不给。
+
+    if (!lr->granted_ && lr->txn_id_ != txn->GetTransactionId()) {
+      if (!AreLocksCompatible(lock_mode, lr->lock_mode_)) {
+        return false;
+      }
+    }
+    if (!lr->granted_ && lr->txn_id_ == txn->GetTransactionId()) {
       lr->granted_ = true;
       return true;
     }
   }
-  // for (auto &lr : lock_request_queue->request_queue_) {
-  //   // 其他事务（在当前事务前面）没有赋予锁，但是和当前锁不兼容， 不给。
-
-  //   if (!lr->granted_ && lr->txn_id_ != txn->GetTransactionId()) {
-  //     if (!AreLocksCompatible(lock_mode, lr->lock_mode_)) {
-  //       return false;
-  //     }
-  //   }
+  return false;
+  // if (lock_mode == LockMode::SHARED) {
+  //   std::cout << "a" << std::endl;
   // }
-  bool all_locks_compatible =
-      std::all_of(lock_request_queue->request_queue_.begin(), lock_request_queue->request_queue_.end(), [&](auto &lr) {
-        if (!lr->granted_ && lr->txn_id_ != txn->GetTransactionId()) {
-          return AreLocksCompatible(lock_mode, lr->lock_mode_);
-        }
-        return true;
-      });
+  // bool all_locks_compatible =
+  //     std::all_of(lock_request_queue->request_queue_.begin(), lock_request_queue->request_queue_.end(), [&](auto &lr)
+  //     {
+  //       if (!lr->granted_ && lr->txn_id_ != txn->GetTransactionId()) {
+  //         return AreLocksCompatible(lock_mode, lr->lock_mode_);
+  //       }
+  //       return true;
+  //     });
 
-  return all_locks_compatible;
+  // return all_locks_compatible;
 }
 
 // 判断是否 事务 拥有 表锁
