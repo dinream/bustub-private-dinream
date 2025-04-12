@@ -68,6 +68,7 @@ auto UpdateExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
 
       auto iwr2 = IndexWriteRecord{*rid,          table_info_->oid_,      WType::INSERT, partial_new_tuple,
                                    x->index_oid_, exec_ctx_->GetCatalog()};
+      //TODO  wir2 没写进去？
     }
   }
   std::vector<Value> values{};

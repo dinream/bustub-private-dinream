@@ -22,7 +22,7 @@ void SortExecutor::Init() {
 
   std::sort(tuples_.begin(), tuples_.end(), [&](const Tuple &a, const Tuple &b) {
     for (auto &x : order_bys) {
-      auto express = x.second;
+      auto express = x.second; // 这里没有直接转为 Column，是因为可能是 Column 的表达式
       auto a_val = express->Evaluate(&a, plan_->GetChildPlan()->OutputSchema());
       auto b_val = express->Evaluate(&b, plan_->GetChildPlan()->OutputSchema());
 
@@ -33,6 +33,7 @@ void SortExecutor::Init() {
       if (a_val.CompareGreaterThan(b_val) == CmpBool::CmpTrue) {
         return ordertype == OrderByType::DESC;
       }
+      // 如果是 equal 进行下一个比较
     }
 
     return true;

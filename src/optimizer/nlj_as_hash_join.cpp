@@ -59,6 +59,7 @@ auto Optimizer::BelongToLeftFromPushDown(const AbstractExpressionRef &expr, uint
 }
 
 // 表达式形式为：colval = colval，或者colval (cmp) const
+// 默认都是 Equal？因为过滤了其他表达式
 auto Optimizer::GetExprForRightPushDown(const AbstractExpressionRef &expr, uint32_t l_cols) -> AbstractExpressionRef {
   auto l_expr = dynamic_cast<const ColumnValueExpression *>(expr->GetChildAt(0).get());
   // 由于要往右边pushdown，所有colval列号要做偏移
@@ -154,6 +155,7 @@ auto Optimizer::ParseExpr(const AbstractExpressionRef &expr,
     } else {
       // 在测试样例中，若不是=类型的，若满足左边为colval，右边为const，则全部为过滤条件，此时直接加到pd_expr即可
       if (!CheckFilterExpr(expr)) {
+        // TODO 这里忽略了 B.b1 > B.b2;  B.b1 > B.b2 + 2  
         return false;
       }
       if (BelongToLeftFromOwnExpr(express->GetChildAt(0))) {
@@ -174,6 +176,7 @@ void Optimizer::GetKeyExprFromOwnExpr(const AbstractExpressionRef &expr,
                                       std::vector<std::vector<AbstractExpressionRef>> &new_pd_expr) {
   auto l_expr = dynamic_cast<const ColumnValueExpression *>(expr->GetChildAt(0).get());
   auto r_expr = dynamic_cast<const ColumnValueExpression *>(expr->GetChildAt(1).get());
+  // TODO  对于 Column = Column + Constan 会出现 nullptr 导致后续出错
   auto l_expr_tuple_0 = std::make_shared<ColumnValueExpression>(0, l_expr->GetColIdx(), l_expr->GetReturnType());
   auto r_expr_tuple_0 = std::make_shared<ColumnValueExpression>(0, r_expr->GetColIdx(), r_expr->GetReturnType());
   // 若左表式和右表达式分别处理左右不同表，那说明是这一层的join条件，提取出来
@@ -242,7 +245,7 @@ auto Optimizer::HashJoinOptimize(const AbstractPlanNodeRef &plan, std::vector<Ab
     const auto &nlj_plan = dynamic_cast<const NestedLoopJoinPlanNode &>(*plan);
     BUSTUB_ENSURE(nlj_plan.children_.size() == 2, "NLJ should have exactly 2 children.");
 
-    // 获取nlj_plan右孩子的列数，用于判断从上面下推的表达式里的col属于左孩子还是右孩子
+    // 获取nlj_plan 左孩子的列数，用于判断从上面下推的表达式里的col属于左孩子还是右孩子
     uint32_t l_cols = nlj_plan.GetChildAt(0)->OutputSchema().GetColumnCount();
 
     // 存pd_expr中可以用于更新自己key_expr的expr
@@ -260,7 +263,7 @@ auto Optimizer::HashJoinOptimize(const AbstractPlanNodeRef &plan, std::vector<Ab
     }
     // std::cout << "aaaaaaaaaaaaa \n" << std::endl;
 
-    // 解析当前nlj_plan的过滤条件，提取new_pd_expr, key_expr
+    // 解析当前nlj_plan的过滤条件，提取 new_pd_expr, key_expr
     if (ParseExpr(nlj_plan.Predicate(), new_pd_expr, key_expr, l_cols)) {
       // 往左右孩子递归优化
       // xixi 1
@@ -269,6 +272,7 @@ auto Optimizer::HashJoinOptimize(const AbstractPlanNodeRef &plan, std::vector<Ab
 
       // 这里采取比较简单的策略，只要优化失败则不继续往下优化直接返回，下层只要优化失败，那么直接返回当前节点，不优化
       // 事实上优化是一段一段的，一段优化失败，下面的段仍然可能优化成功
+      // TODO 可能右节点吧左节点的失败覆盖。
       if (!success) {
         return plan;
       }
@@ -281,7 +285,7 @@ auto Optimizer::HashJoinOptimize(const AbstractPlanNodeRef &plan, std::vector<Ab
 
     // 只要优化失败则不继续往下优化直接返回
     success = false;
-    return plan;
+    return plan; // TODO　这里没有管推下来的谓词，所以一旦失败，整个流程必须失败。
   }
   // xixi 3
 

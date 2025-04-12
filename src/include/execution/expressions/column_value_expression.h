@@ -28,7 +28,7 @@ class ColumnValueExpression : public AbstractExpression {
  public:
   /**
    * ColumnValueExpression is an abstraction around "Table.member" in terms of indexes.
-   * @param tuple_idx {tuple index 0 = left side of join, tuple index 1 = right side of join}
+   * @param tuple_idx {tuple index 0 = left side of join, tuple index 1 = right side of join}  通常在 Join 的 EvaluateJoin 中用到
    * @param col_idx the index of the column in the schema
    * @param ret_type the return type of the expression
    */

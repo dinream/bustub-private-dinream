@@ -131,7 +131,8 @@ auto LockManager::LockTableTry(Transaction *txn, LockMode lock_mode, const table
   }
   // 等待锁。
   while (!CanTxnTakeLock(txn, lock_mode, lrq)) {
-    lrq->cv_.wait(lock);
+    lrq->cv_.wait(lock);  // 挂起并释放 latch_
+    // 等待被 notify_all 唤醒后，会重新获得 lock，然后重新判断条件
   }
   // 已经授予锁了 或者 中止了
   // 中止
